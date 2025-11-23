@@ -301,9 +301,9 @@ export default function SearchInterface({
   };
 
   return (
-    <div className={`bg-white rounded-lg border border-secondary-200 ${className}`}>
+    <div className={`border-4 border-white bg-white ${className}`}>
       {/* Search Header */}
-      <div className="p-4 border-b border-secondary-200">
+      <div className="p-6 border-b-4 border-[#0A0A0A]">
         <div className="space-y-4">
           {/* Search Input */}
           <SearchInput
@@ -335,10 +335,13 @@ export default function SearchInterface({
               {query.trim() && (
                 <button
                   onClick={saveCurrentSearch}
-                  className="flex items-center space-x-1 px-3 py-2 text-sm text-secondary-600 hover:text-secondary-800 hover:bg-secondary-50 rounded-lg transition-colors"
+                  className="flex items-center space-x-2 px-4 py-2 border-4 border-[#0A0A0A] bg-transparent text-[#0A0A0A] font-mono text-xs uppercase font-bold hover:bg-[#0A0A0A] hover:text-white transition-all duration-100"
+                  style={{ boxShadow: '4px 4px 0 0 #0A0A0A' }}
+                  onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 0 0 0 #0A0A0A'}
+                  onMouseLeave={(e) => e.currentTarget.style.boxShadow = '4px 4px 0 0 #0A0A0A'}
                 >
                   <Save className="w-4 h-4" />
-                  <span>Save Search</span>
+                  <span>SAVE</span>
                 </button>
               )}
             </div>
@@ -347,21 +350,21 @@ export default function SearchInterface({
       </div>
 
       {/* Results Tabs */}
-      <div className="border-b border-secondary-200">
+      <div className="border-b-4 border-[#0A0A0A]">
         <div className="flex">
           <button
             onClick={() => setActiveTab('results')}
             className={`
-              px-4 py-3 text-sm font-medium border-b-2 transition-colors
+              px-6 py-3 font-mono text-xs uppercase font-bold border-r-4 border-[#0A0A0A] transition-all duration-100
               ${activeTab === 'results'
-                ? 'border-primary-500 text-primary-600'
-                : 'border-transparent text-secondary-600 hover:text-secondary-800'
+                ? 'bg-[#39FF14] text-[#0A0A0A]'
+                : 'bg-white text-gray-600 hover:bg-gray-100'
               }
             `}
           >
-            Results
+            RESULTS
             {searchResponse && (
-              <span className="ml-2 px-2 py-0.5 bg-secondary-100 text-secondary-600 rounded-full text-xs">
+              <span className="ml-2 px-2 py-0.5 bg-[#0A0A0A] text-white text-xs">
                 {searchResponse.total_count}
               </span>
             )}
@@ -370,17 +373,17 @@ export default function SearchInterface({
           <button
             onClick={() => setActiveTab('saved')}
             className={`
-              flex items-center space-x-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors
+              flex items-center space-x-2 px-6 py-3 font-mono text-xs uppercase font-bold border-r-4 border-[#0A0A0A] transition-all duration-100
               ${activeTab === 'saved'
-                ? 'border-primary-500 text-primary-600'
-                : 'border-transparent text-secondary-600 hover:text-secondary-800'
+                ? 'bg-[#39FF14] text-[#0A0A0A]'
+                : 'bg-white text-gray-600 hover:bg-gray-100'
               }
             `}
           >
             <Bookmark className="w-4 h-4" />
-            <span>Saved</span>
+            <span>SAVED</span>
             {savedSearches.length > 0 && (
-              <span className="px-2 py-0.5 bg-secondary-100 text-secondary-600 rounded-full text-xs">
+              <span className="px-2 py-0.5 bg-[#0A0A0A] text-white text-xs">
                 {savedSearches.length}
               </span>
             )}
@@ -389,31 +392,31 @@ export default function SearchInterface({
           <button
             onClick={() => setActiveTab('analytics')}
             className={`
-              flex items-center space-x-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors
+              flex items-center space-x-2 px-6 py-3 font-mono text-xs uppercase font-bold border-r-4 border-[#0A0A0A] transition-all duration-100
               ${activeTab === 'analytics'
-                ? 'border-primary-500 text-primary-600'
-                : 'border-transparent text-secondary-600 hover:text-secondary-800'
+                ? 'bg-[#39FF14] text-[#0A0A0A]'
+                : 'bg-white text-gray-600 hover:bg-gray-100'
               }
             `}
           >
             <BarChart3 className="w-4 h-4" />
-            <span>Analytics</span>
+            <span>ANALYTICS</span>
           </button>
 
           <button
             onClick={() => setActiveTab('history')}
             className={`
-              flex items-center space-x-1 px-4 py-3 text-sm font-medium border-b-2 transition-colors
+              flex items-center space-x-2 px-6 py-3 font-mono text-xs uppercase font-bold transition-all duration-100
               ${activeTab === 'history'
-                ? 'border-primary-500 text-primary-600'
-                : 'border-transparent text-secondary-600 hover:text-secondary-800'
+                ? 'bg-[#39FF14] text-[#0A0A0A]'
+                : 'bg-white text-gray-600 hover:bg-gray-100'
               }
             `}
           >
             <History className="w-4 h-4" />
-            <span>History</span>
+            <span>HISTORY</span>
             {searchHistory.length > 0 && (
-              <span className="px-2 py-0.5 bg-secondary-100 text-secondary-600 rounded-full text-xs">
+              <span className="px-2 py-0.5 bg-[#0A0A0A] text-white text-xs">
                 {searchHistory.length}
               </span>
             )}
@@ -422,21 +425,35 @@ export default function SearchInterface({
       </div>
 
       {/* Tab Content */}
-      <div className="p-4">
+      <div className="p-6">
         {activeTab === 'results' && (
-          <SearchResults
-            searchResponse={searchResponse}
-            loading={loading}
-            loadingMore={loadingMore}
-            hasMore={hasMore}
-            onResultClick={handleResultClick}
-            onSaveResult={saveResult}
-            savedResults={savedResults}
-            onExportResults={() => setShowExportModal(true)}
-            onLoadMore={handleLoadMore}
-            enableInfiniteScroll={true}
-            pageSize={20}
-          />
+          !query.trim() && !searchResponse ? (
+            <div className="text-center py-16">
+              <div className="w-20 h-20 border-4 border-gray-300 flex items-center justify-center mx-auto mb-6">
+                <History className="w-10 h-10 text-gray-300" />
+              </div>
+              <h3 className="text-2xl font-black uppercase text-[#0A0A0A] mb-2">
+                READY TO SEARCH
+              </h3>
+              <p className="font-mono text-sm text-gray-600 uppercase">
+                ENTER A QUERY TO FIND CONTENT
+              </p>
+            </div>
+          ) : (
+            <SearchResults
+              searchResponse={searchResponse}
+              loading={loading}
+              loadingMore={loadingMore}
+              hasMore={hasMore}
+              onResultClick={handleResultClick}
+              onSaveResult={saveResult}
+              savedResults={savedResults}
+              onExportResults={() => setShowExportModal(true)}
+              onLoadMore={handleLoadMore}
+              enableInfiniteScroll={true}
+              pageSize={20}
+            />
+          )
         )}
 
         {activeTab === 'analytics' && projectId && (
@@ -453,25 +470,25 @@ export default function SearchInterface({
         )}
 
         {activeTab === 'history' && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h3 className="text-sm font-medium text-secondary-900">
-                Search History ({searchHistory.length})
+          <div className="space-y-4">
+            <div className="flex items-center justify-between pb-4 border-b-4 border-[#0A0A0A]">
+              <h3 className="font-mono text-sm font-bold text-[#0A0A0A] uppercase">
+                SEARCH HISTORY ({searchHistory.length})
               </h3>
               {searchHistory.length > 0 && (
                 <button
                   onClick={clearSearchHistory}
-                  className="text-xs text-secondary-500 hover:text-secondary-700 transition-colors"
+                  className="font-mono text-xs uppercase text-[#FF073A] hover:text-white hover:bg-[#FF073A] px-3 py-1 border-2 border-[#FF073A] transition-all duration-100"
                 >
-                  Clear all
+                  CLEAR ALL
                 </button>
               )}
             </div>
             
             {searchHistory.length === 0 ? (
-              <div className="text-center py-8">
-                <History className="w-8 h-8 text-secondary-300 mx-auto mb-3" />
-                <p className="text-sm text-secondary-600">No search history</p>
+              <div className="text-center py-12">
+                <History className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+                <p className="font-mono text-sm text-gray-600 uppercase">NO SEARCH HISTORY</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -479,11 +496,11 @@ export default function SearchInterface({
                   <button
                     key={index}
                     onClick={() => handleSearch(historyQuery)}
-                    className="w-full text-left p-3 bg-secondary-50 hover:bg-secondary-100 rounded-lg transition-colors"
+                    className="w-full text-left p-4 border-4 border-[#0A0A0A] bg-gray-50 hover:bg-[#39FF14] transition-all duration-100 group"
                   >
-                    <div className="flex items-center space-x-2">
-                      <History className="w-4 h-4 text-secondary-400" />
-                      <span className="text-sm text-secondary-700">{historyQuery}</span>
+                    <div className="flex items-center space-x-3">
+                      <History className="w-5 h-5 text-gray-400 group-hover:text-[#0A0A0A]" />
+                      <span className="font-mono text-sm text-[#0A0A0A] font-bold">{historyQuery}</span>
                     </div>
                   </button>
                 ))}

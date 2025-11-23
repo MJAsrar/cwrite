@@ -5,28 +5,17 @@ import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { 
   LayoutDashboard, 
-  FolderOpen, 
   Search, 
   Settings, 
-  User, 
   LogOut,
   Menu,
-  X,
-  BookOpen,
-  Bell,
-  ChevronDown,
-  Command,
-  Plus
+  X
 } from 'lucide-react';
 import { User as UserType } from '@/types';
-import Breadcrumb from '@/components/ui/Breadcrumb';
-import { useBreadcrumbs } from '@/hooks/useBreadcrumbs';
-import ThemeToggle from '@/components/ui/ThemeToggle';
-import Button from '@/components/ui/Button';
 
 interface DashboardLayoutProps {
   children: ReactNode;
-  projectName?: string; // For dynamic breadcrumb labels
+  projectName?: string;
 }
 
 interface NavigationItem {
@@ -40,22 +29,11 @@ export default function DashboardLayout({ children, projectName }: DashboardLayo
   const router = useRouter();
   const pathname = usePathname();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [userMenuOpen, setUserMenuOpen] = useState(false);
-  // Initialize with a placeholder to avoid SSR issues during build
-  const [user, setUser] = useState<UserType | null>({ 
-    id: '', 
-    email: 'Loading...', 
-    role: 'user', 
-    created_at: '', 
-    email_verified: false 
-  });
-  const breadcrumbs = useBreadcrumbs(projectName);
+  const [user, setUser] = useState<UserType | null>(null);
 
-  // Get user info from API (assuming auth is already verified by ProtectedRoute)
   useEffect(() => {
     const getUserInfo = async () => {
       try {
-        // Check if we're in browser environment
         if (typeof window === 'undefined') return;
         
         const token = localStorage.getItem('access_token');
@@ -82,25 +60,19 @@ export default function DashboardLayout({ children, projectName }: DashboardLayo
 
   const navigation: NavigationItem[] = [
     {
-      name: 'Dashboard',
+      name: 'DASHBOARD',
       href: '/dashboard',
       icon: LayoutDashboard,
       current: pathname === '/dashboard'
     },
     {
-      name: 'Projects',
-      href: '/dashboard/projects',
-      icon: FolderOpen,
-      current: pathname.startsWith('/dashboard/projects')
-    },
-    {
-      name: 'Search',
+      name: 'SEARCH',
       href: '/dashboard/search',
       icon: Search,
       current: pathname.startsWith('/dashboard/search')
     },
     {
-      name: 'Settings',
+      name: 'SETTINGS',
       href: '/dashboard/settings',
       icon: Settings,
       current: pathname.startsWith('/dashboard/settings')
@@ -121,241 +93,129 @@ export default function DashboardLayout({ children, projectName }: DashboardLayo
     } catch (error) {
       console.error('Logout failed:', error);
     } finally {
-      // Clear token and redirect
       localStorage.removeItem('access_token');
       router.push('/');
     }
   };
 
   return (
-    <div className="flex min-h-screen bg-background">
-      {/* Enhanced Mobile sidebar backdrop */}
+    <div className="flex min-h-screen bg-[#0A0A0A]">
+      {/* Mobile sidebar backdrop */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden touch-manipulation animate-fade-in"
+          className="fixed inset-0 z-40 bg-black/80 lg:hidden"
           onClick={() => setSidebarOpen(false)}
-          onTouchStart={() => setSidebarOpen(false)}
         />
       )}
 
-      {/* Enhanced Sidebar */}
+      {/* Sidebar */}
       <div 
         className={`
-          fixed inset-y-0 left-0 z-50 w-64 bg-card/95 backdrop-blur-xl border-r border-border shadow-xl transform transition-transform duration-300 ease-in-out lg:translate-x-0 lg:relative lg:bg-card lg:backdrop-blur-none
+          fixed inset-y-0 left-0 z-50 w-64 bg-white border-r-4 border-[#0A0A0A] transform transition-transform duration-200 lg:translate-x-0 lg:relative
           ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         `}
-        onTouchStart={(e) => {
-          // Store initial touch position for swipe detection
-          const touch = e.touches[0];
-          e.currentTarget.setAttribute('data-touch-start-x', touch.clientX.toString());
-        }}
-        onTouchMove={(e) => {
-          // Prevent scrolling when swiping
-          if (sidebarOpen) {
-            const startX = parseFloat(e.currentTarget.getAttribute('data-touch-start-x') || '0');
-            const currentX = e.touches[0].clientX;
-            const diff = startX - currentX;
-            
-            // If swiping left significantly, close sidebar
-            if (diff > 50) {
-              setSidebarOpen(false);
-            }
-          }
-        }}
       >
         <div className="flex flex-col h-full">
-          {/* Enhanced Logo */}
-          <div className="flex items-center justify-between h-16 px-6 border-b border-border">
-            <Link href="/dashboard" className="flex items-center space-x-2 group">
-              <div className="w-8 h-8 bg-primary rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                <BookOpen className="w-5 h-5 text-primary-foreground" />
+          {/* Logo */}
+          <div className="flex items-center justify-between h-16 px-6 border-b-4 border-[#0A0A0A]">
+            <Link href="/dashboard" className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-[#39FF14] border-2 border-[#0A0A0A] flex items-center justify-center font-black text-[#0A0A0A]">
+                C
               </div>
-              <span className="font-serif text-xl font-bold text-foreground">CoWriteAI</span>
+              <span className="font-black text-xl text-[#0A0A0A] uppercase">COWRITE.AI</span>
             </Link>
-            <Button
-              variant="ghost"
-              size="icon"
+            <button
               onClick={() => setSidebarOpen(false)}
-              className="lg:hidden text-muted-foreground hover:text-foreground hover:bg-accent rounded-xl"
+              className="lg:hidden text-[#0A0A0A] hover:text-[#39FF14]"
             >
               <X className="w-5 h-5" />
-            </Button>
+            </button>
           </div>
 
-          {/* Enhanced Navigation */}
-          <nav className="flex-1 px-4 py-6 space-y-1">
+          {/* Navigation */}
+          <nav className="flex-1 px-4 py-6 space-y-2">
             {navigation.map((item) => (
               <Link
                 key={item.name}
                 href={item.href}
                 className={`
-                  group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl transition-all duration-200 touch-manipulation
+                  group flex items-center px-4 py-3 text-sm font-mono font-bold uppercase transition-all duration-100
                   ${item.current
-                    ? 'bg-primary text-primary-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground hover:bg-accent'
+                    ? 'bg-[#39FF14] text-[#0A0A0A] border-4 border-[#0A0A0A]'
+                    : 'text-[#0A0A0A] border-4 border-transparent hover:border-[#0A0A0A] hover:bg-gray-100'
                   }
                 `}
                 onClick={() => setSidebarOpen(false)}
+                style={item.current ? { boxShadow: '4px 4px 0 0 #0A0A0A' } : {}}
               >
-                <item.icon className={`w-5 h-5 mr-3 flex-shrink-0 transition-transform group-hover:scale-110 ${item.current ? 'text-primary-foreground' : ''}`} />
-                <span className="truncate">{item.name}</span>
+                <item.icon className="w-5 h-5 mr-3 flex-shrink-0" />
+                <span>{item.name}</span>
               </Link>
             ))}
           </nav>
 
-          {/* Enhanced User section */}
-          <div className="border-t border-border p-4">
-            <div className="flex items-center space-x-3 mb-4 p-3 rounded-xl bg-muted/50">
-              <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
-                <User className="w-5 h-5 text-primary-foreground" />
+          {/* User section */}
+          <div className="border-t-4 border-[#0A0A0A] p-4">
+            <div className="flex items-center space-x-3 mb-4 p-3 border-2 border-[#0A0A0A] bg-gray-50">
+              <div className="w-10 h-10 bg-[#FF073A] border-2 border-[#0A0A0A] flex items-center justify-center font-black text-white text-lg">
+                {user?.email?.[0].toUpperCase() || 'U'}
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">
+                <p className="text-xs font-mono font-bold text-[#0A0A0A] truncate uppercase">
                   {user?.email}
                 </p>
-                <p className="text-xs text-muted-foreground capitalize">
-                  {user?.role || 'User'}
+                <p className="text-xs font-mono text-gray-600 uppercase">
+                  {user?.role || 'USER'}
                 </p>
               </div>
             </div>
             
-            <Button
-              variant="ghost"
+            <button
               onClick={handleLogout}
-              className="w-full justify-start px-3 py-2 text-sm text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-xl"
+              className="w-full flex items-center justify-start px-4 py-3 text-sm font-mono font-bold uppercase text-[#FF073A] border-4 border-[#FF073A] hover:bg-[#FF073A] hover:text-white transition-all duration-100"
+              style={{ boxShadow: '4px 4px 0 0 #FF073A' }}
+              onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 0 0 0 #FF073A'}
+              onMouseLeave={(e) => e.currentTarget.style.boxShadow = '4px 4px 0 0 #FF073A'}
             >
               <LogOut className="w-4 h-4 mr-3" />
-              Sign Out
-            </Button>
+              SIGN OUT
+            </button>
           </div>
         </div>
       </div>
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-h-screen">
-        {/* Enhanced Top bar with backdrop blur */}
-        <div className="sticky top-0 z-30 backdrop-blur-subtle border-b border-border/40 px-4 py-2 lg:px-8 bg-background/95">
-          <div className="flex items-center justify-between h-10">
-            <div className="flex items-center space-x-3 min-w-0 flex-1">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => setSidebarOpen(true)}
-                className="lg:hidden -ml-2 text-muted-foreground hover:text-foreground rounded-xl hover:bg-accent h-9 w-9"
-              >
-                <Menu className="w-5 h-5" />
-              </Button>
-              
-              {/* Breadcrumbs - responsive */}
-              {breadcrumbs.length > 0 && (
-                <div className="min-w-0 flex-1">
-                  <Breadcrumb 
-                    items={breadcrumbs} 
-                    className="flex"
-                  />
-                </div>
-              )}
-            </div>
+        {/* Top bar */}
+        <div className="sticky top-0 z-30 border-b-4 border-white px-4 py-3 lg:px-8 bg-[#0A0A0A]">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden text-[#39FF14] hover:text-white"
+            >
+              <Menu className="w-6 h-6" />
+            </button>
             
-            <div className="flex items-center space-x-2 ml-4">
-              {/* Quick actions */}
-              <Button
-                variant="outline"
-                size="icon"
-                className="hidden sm:flex rounded-xl h-9 w-9"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-              
-              {/* Notifications */}
-              <Button
-                variant="outline"
-                size="icon"
-                className="relative rounded-xl h-9 w-9"
-              >
-                <Bell className="h-4 w-4" />
-                <span className="absolute -top-1 -right-1 h-3 w-3 bg-destructive rounded-full text-[10px] text-destructive-foreground flex items-center justify-center">
-                  2
-                </span>
-              </Button>
-              
-              {/* Theme toggle */}
-              <ThemeToggle />
-              
-              {/* User menu */}
-              <div className="relative">
-                <Button
-                  variant="outline"
-                  onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center space-x-2 h-9 px-3 rounded-xl"
-                >
-                  <div className="w-6 h-6 bg-primary rounded-full flex items-center justify-center">
-                    <User className="w-4 h-4 text-primary-foreground" />
-                  </div>
-                  <span className="hidden sm:block text-sm font-medium truncate max-w-24">
-                    {user?.email?.split('@')[0]}
-                  </span>
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                </Button>
+            <div className="flex-1 lg:flex-none">
+              <p className="font-mono text-sm text-[#39FF14] uppercase">
+                {pathname === '/dashboard' && 'DASHBOARD'}
+                {pathname.startsWith('/dashboard/search') && 'SEARCH'}
+                {pathname.startsWith('/dashboard/settings') && 'SETTINGS'}
+                {pathname.startsWith('/dashboard/projects') && 'PROJECT'}
+              </p>
+            </div>
 
-                {/* Enhanced User Dropdown Menu */}
-                {userMenuOpen && (
-                  <>
-                    <div
-                      className="fixed inset-0 z-40"
-                      onClick={() => setUserMenuOpen(false)}
-                    />
-                    <div className="absolute right-0 mt-2 w-64 bg-card border border-border rounded-2xl shadow-lg z-50 animate-scale-in">
-                      <div className="p-4 border-b border-border">
-                        <div className="flex items-center space-x-3">
-                          <div className="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
-                            <User className="w-6 h-6 text-primary-foreground" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">
-                              {user?.email}
-                            </p>
-                            <p className="text-xs text-muted-foreground capitalize">
-                              {user?.role || 'User'}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="p-2">
-                        <Link
-                          href="/dashboard/settings"
-                          className="flex items-center px-3 py-2 text-sm text-foreground hover:bg-accent hover:text-accent-foreground rounded-xl transition-colors"
-                          onClick={() => setUserMenuOpen(false)}
-                        >
-                          <Settings className="w-4 h-4 mr-3" />
-                          Settings
-                        </Link>
-                        <Button
-                          variant="ghost"
-                          onClick={() => {
-                            setUserMenuOpen(false);
-                            handleLogout();
-                          }}
-                          className="w-full justify-start px-3 py-2 text-sm text-destructive hover:bg-destructive/10 rounded-xl"
-                        >
-                          <LogOut className="w-4 h-4 mr-3" />
-                          Sign Out
-                        </Button>
-                      </div>
-                    </div>
-                  </>
-                )}
+            <div className="flex items-center space-x-2">
+              <div className="hidden sm:block font-mono text-xs text-gray-500 uppercase">
+                {user?.email?.split('@')[0]}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Enhanced Page content */}
-        <main className="flex-1 px-4 py-3 lg:px-8 lg:py-4">
-          <div className="animate-fade-in">
-            {children}
-          </div>
+        {/* Page content */}
+        <main className="flex-1 px-4 py-6 lg:px-8 lg:py-8">
+          {children}
         </main>
       </div>
     </div>

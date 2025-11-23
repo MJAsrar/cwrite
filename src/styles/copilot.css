@@ -1,0 +1,33 @@
+/* Copilot inline suggestion styling */
+.copilot-suggestion {
+  color: #6b7280 !important;
+  font-style: italic !important;
+  opacity: 0.6 !important;
+}
+
+/* Monaco editor custom theme adjustments */
+.monaco-editor .view-line {
+  font-feature-settings: "liga" 1, "calt" 1;
+}
+
+/* Line numbers styling */
+.monaco-editor .line-numbers {
+  color: #4b5563 !important;
+  font-weight: 500;
+}
+
+/* Current line highlight */
+.monaco-editor .current-line {
+  border: none !important;
+  background-color: rgba(57, 255, 20, 0.05) !important;
+}
+
+/* Selection color */
+.monaco-editor .selected-text {
+  background-color: rgba(57, 255, 20, 0.2) !important;
+}
+
+/* Cursor color */
+.monaco-editor .cursor {
+  background-color: #39FF14 !important;
+}

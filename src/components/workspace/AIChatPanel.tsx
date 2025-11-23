@@ -5,14 +5,10 @@ import {
   Send, 
   Sparkles, 
   User, 
-  Bot, 
-  Loader2,
-  MoreVertical,
-  Trash2,
-  Copy,
-  Check
+  Bot,
+  Trash2
 } from 'lucide-react';
-import Button from '@/components/ui/Button';
+import { api } from '@/lib/api';
 
 interface Message {
   id: string;
@@ -31,11 +27,7 @@ export default function AIChatPanel({ projectId, fileId, projectName }: AIChatPa
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
-  const [conversationId, setConversationId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -52,62 +44,32 @@ export default function AIChatPanel({ projectId, fileId, projectName }: AIChatPa
     };
 
     setMessages(prev => [...prev, userMessage]);
-    const currentInput = input;
+    const userInput = input;
     setInput('');
     setIsLoading(true);
-    setError(null);
 
     try {
-      // Call the chat API
-      const token = localStorage.getItem('access_token');
-      const response = await fetch('/api/v1/chat/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          message: currentInput,
-          conversation_id: conversationId,
-          project_id: projectId,
-          file_id: fileId || null,
-          include_entities: true,
-          include_scenes: true,
-          include_relationships: true,
-          max_context_chunks: 5
-        })
+      const data = await api.post<any>('/api/v1/chat', {
+        message: userInput,
+        project_id: projectId,
+        file_id: fileId || null,
+        conversation_id: null // Will create new conversation
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to get response');
-      }
-
-      const data = await response.json();
       
-      // Set conversation ID if this is a new conversation
-      if (!conversationId && data.conversation_id) {
-        setConversationId(data.conversation_id);
-      }
-
-      // Add assistant message
       const aiMessage: Message = {
-        id: data.message.id,
+        id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: data.message.content,
-        timestamp: new Date(data.message.created_at)
+        content: data.message?.content || 'Sorry, I could not generate a response.',
+        timestamp: new Date()
       };
       
       setMessages(prev => [...prev, aiMessage]);
-    } catch (err: any) {
-      console.error('Chat error:', err);
-      setError(err.message || 'Failed to get response from AI');
-      
-      // Show error message
+    } catch (error) {
+      console.error('Chat error:', error);
       const errorMessage: Message = {
-        id: Date.now().toString(),
+        id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: `⚠️ Error: ${err.message || 'Failed to get response. Please try again.'}`,
+        content: 'Sorry, I encountered an error. Please try again.',
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMessage]);
@@ -123,75 +85,64 @@ export default function AIChatPanel({ projectId, fileId, projectName }: AIChatPa
     }
   };
 
-  const handleCopy = (content: string, id: string) => {
-    navigator.clipboard.writeText(content);
-    setCopiedId(id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
   const handleClearChat = () => {
-    if (confirm('Clear all messages?')) {
+    if (confirm('CLEAR ALL MESSAGES?')) {
       setMessages([]);
     }
   };
 
   return (
-    <div className="h-full flex flex-col bg-card">
+    <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="border-b border-border p-3">
-        <div className="flex items-center justify-between mb-2">
+      <div className="border-b-4 border-[#0A0A0A] p-4">
+        <div className="flex items-center justify-between mb-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center">
-              <Sparkles className="w-4 h-4 text-primary-foreground" />
+            <div className="w-10 h-10 bg-[#FF073A] border-4 border-[#0A0A0A] flex items-center justify-center">
+              <Sparkles className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h3 className="font-semibold text-foreground">AI Assistant</h3>
-              <p className="text-xs text-muted-foreground">Powered by CoWrite AI</p>
+              <h3 className="font-black text-sm uppercase text-[#0A0A0A]">AI ASSISTANT</h3>
+              <p className="font-mono text-xs text-gray-600 uppercase">COWRITE AI</p>
             </div>
           </div>
-          <Button
-            variant="ghost"
-            size="icon-sm"
+          <button
             onClick={handleClearChat}
             disabled={messages.length === 0}
-            title="Clear chat"
+            className="p-2 text-[#FF073A] hover:bg-[#FF073A]/10 transition-colors disabled:opacity-50"
+            title="CLEAR CHAT"
           >
             <Trash2 className="w-4 h-4" />
-          </Button>
+          </button>
         </div>
         
-        {/* Status badge */}
-        <div className="flex items-center gap-2 text-xs">
-          <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400">
-            <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-            <span>Coming Soon</span>
+        <div className="flex items-center gap-2 font-mono text-xs">
+          <div className="flex items-center gap-2 px-2 py-1 border-2 border-[#39FF14] bg-[#39FF14]/10 text-[#39FF14] uppercase">
+            <div className="w-2 h-2 bg-[#39FF14] animate-pulse" />
+            <span className="font-bold">ONLINE</span>
           </div>
-          {projectName && (
-            <span className="text-muted-foreground">• {projectName}</span>
-          )}
         </div>
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-3">
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.length === 0 ? (
           <div className="h-full flex items-center justify-center">
             <div className="text-center max-w-sm px-6">
-              <div className="w-16 h-16 mx-auto mb-4 rounded-2xl bg-gradient-to-br from-primary/10 to-primary/5 flex items-center justify-center">
-                <Sparkles className="w-8 h-8 text-primary" />
+              <div className="w-16 h-16 mx-auto mb-4 border-4 border-[#39FF14] bg-[#39FF14]/10 flex items-center justify-center">
+                <Sparkles className="w-8 h-8 text-[#39FF14]" />
               </div>
-              <h4 className="text-lg font-semibold text-foreground mb-2">
-                Your AI Writing Partner
+              <h4 className="text-lg font-black uppercase text-[#0A0A0A] mb-2">
+                AI WRITING PARTNER
               </h4>
-              <p className="text-sm text-muted-foreground mb-4">
-                Get help with character development, plot suggestions, dialogue, and more.
+              <p className="font-mono text-xs text-gray-600 mb-4 uppercase">
+                GET HELP WITH CHARACTERS, PLOT, AND MORE
               </p>
-              <div className="space-y-2 text-xs text-muted-foreground text-left bg-muted/30 rounded-lg p-3">
-                <p className="font-medium text-foreground">Try asking:</p>
+              <div className="space-y-2 font-mono text-xs text-gray-600 text-left border-4 border-[#0A0A0A] p-3 bg-gray-50">
+                <p className="font-bold text-[#0A0A0A] uppercase">TRY ASKING:</p>
                 <ul className="space-y-1">
-                  <li>• "Suggest a backstory for Marcus"</li>
-                  <li>• "Help me develop this scene"</li>
-                  <li>• "What could happen next?"</li>
+                  <li>• "SUGGEST A BACKSTORY"</li>
+                  <li>• "HELP DEVELOP THIS SCENE"</li>
+                  <li>• "WHAT COULD HAPPEN NEXT?"</li>
                 </ul>
               </div>
             </div>
@@ -204,46 +155,31 @@ export default function AIChatPanel({ projectId, fileId, projectName }: AIChatPa
                 message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
               }`}
             >
-              {/* Avatar */}
-              <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center ${
+              <div className={`flex-shrink-0 w-8 h-8 border-4 border-[#0A0A0A] flex items-center justify-center ${
                 message.role === 'user'
-                  ? 'bg-primary text-primary-foreground'
-                  : 'bg-gradient-to-br from-primary to-primary/60 text-primary-foreground'
+                  ? 'bg-[#39FF14]'
+                  : 'bg-[#FF073A]'
               }`}>
                 {message.role === 'user' ? (
-                  <User className="w-4 h-4" />
+                  <User className="w-4 h-4 text-[#0A0A0A]" />
                 ) : (
-                  <Bot className="w-4 h-4" />
+                  <Bot className="w-4 h-4 text-white" />
                 )}
               </div>
 
-              {/* Message content */}
               <div className={`flex-1 space-y-1 ${
                 message.role === 'user' ? 'items-end' : 'items-start'
               }`}>
-                <div className={`group relative inline-block max-w-[85%] rounded-2xl px-4 py-2.5 ${
+                <div className={`inline-block max-w-[85%] border-4 border-[#0A0A0A] px-4 py-2 ${
                   message.role === 'user'
-                    ? 'bg-primary text-primary-foreground ml-auto'
-                    : 'bg-muted text-foreground'
+                    ? 'bg-[#39FF14] ml-auto'
+                    : 'bg-white'
                 }`}>
-                  <p className="text-sm whitespace-pre-wrap break-words">
+                  <p className="font-mono text-xs text-[#0A0A0A] whitespace-pre-wrap break-words">
                     {message.content}
                   </p>
-                  
-                  {/* Actions */}
-                  <button
-                    onClick={() => handleCopy(message.content, message.id)}
-                    className="absolute -right-2 -top-2 opacity-0 group-hover:opacity-100 transition-opacity bg-background border border-border rounded-lg p-1.5 shadow-sm hover:bg-accent"
-                    title="Copy message"
-                  >
-                    {copiedId === message.id ? (
-                      <Check className="w-3 h-3 text-green-600" />
-                    ) : (
-                      <Copy className="w-3 h-3" />
-                    )}
-                  </button>
                 </div>
-                <span className="text-xs text-muted-foreground px-2">
+                <span className="font-mono text-xs text-gray-500 px-2 uppercase">
                   {message.timestamp.toLocaleTimeString([], { 
                     hour: '2-digit', 
                     minute: '2-digit' 
@@ -256,14 +192,14 @@ export default function AIChatPanel({ projectId, fileId, projectName }: AIChatPa
 
         {isLoading && (
           <div className="flex gap-3">
-            <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-primary/60 flex items-center justify-center text-primary-foreground">
-              <Bot className="w-4 h-4" />
+            <div className="flex-shrink-0 w-8 h-8 border-4 border-[#0A0A0A] bg-[#FF073A] flex items-center justify-center">
+              <Bot className="w-4 h-4 text-white" />
             </div>
             <div className="flex-1">
-              <div className="inline-block bg-muted rounded-2xl px-4 py-3">
+              <div className="inline-block border-4 border-[#0A0A0A] bg-white px-4 py-3">
                 <div className="flex items-center gap-2">
-                  <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                  <span className="text-sm text-muted-foreground">Thinking...</span>
+                  <div className="w-4 h-4 border-2 border-t-[#39FF14] border-r-transparent border-b-transparent border-l-transparent animate-spin" />
+                  <span className="font-mono text-xs text-gray-600 uppercase">THINKING...</span>
                 </div>
               </div>
             </div>
@@ -274,39 +210,32 @@ export default function AIChatPanel({ projectId, fileId, projectName }: AIChatPa
       </div>
 
       {/* Input */}
-      <div className="border-t border-border p-4">
+      <div className="border-t-4 border-[#0A0A0A] p-4">
         <div className="flex gap-2">
-          <div className="flex-1 relative">
-            <textarea
-              ref={inputRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Ask AI for help..."
-              rows={1}
-              className="w-full px-4 py-2.5 pr-10 bg-background border border-border rounded-xl resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 text-sm"
-              style={{ minHeight: '42px', maxHeight: '120px' }}
-            />
-            <div className="absolute right-3 bottom-2 text-xs text-muted-foreground">
-              ⏎
-            </div>
-          </div>
-          <Button
+          <textarea
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="ASK AI FOR HELP..."
+            rows={1}
+            className="flex-1 px-4 py-3 border-4 border-[#0A0A0A] bg-white resize-none focus:outline-none focus:border-[#39FF14] font-mono text-xs text-[#0A0A0A] placeholder:text-gray-400 uppercase"
+            style={{ minHeight: '42px', maxHeight: '120px' }}
+          />
+          <button
             onClick={handleSend}
             disabled={!input.trim() || isLoading}
-            size="icon"
-            className="flex-shrink-0"
+            className="flex-shrink-0 w-12 h-12 border-4 border-[#39FF14] bg-transparent text-[#39FF14] hover:bg-[#39FF14] hover:text-[#0A0A0A] transition-all duration-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+            style={{ boxShadow: '4px 4px 0 0 #39FF14' }}
+            onMouseEnter={(e) => !input.trim() || (e.currentTarget.style.boxShadow = '0 0 0 0 #39FF14')}
+            onMouseLeave={(e) => !input.trim() || (e.currentTarget.style.boxShadow = '4px 4px 0 0 #39FF14')}
           >
-            <Send className="w-4 h-4" />
-          </Button>
+            <Send className="w-5 h-5" />
+          </button>
         </div>
-        <p className="text-xs text-muted-foreground mt-2 text-center">
-          AI features coming soon • Press Enter to send, Shift+Enter for new line
+        <p className="font-mono text-xs text-gray-500 mt-2 text-center uppercase">
+          ENTER TO SEND • SHIFT+ENTER FOR NEW LINE
         </p>
       </div>
     </div>
   );
 }
-
-
-

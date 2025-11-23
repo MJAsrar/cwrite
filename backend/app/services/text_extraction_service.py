@@ -86,7 +86,14 @@ class TextExtractionService:
             logger.error(f"Unexpected error extracting text from {file_record.filename}: {e}")
             raise TextExtractionError(f"Text extraction failed: {str(e)}")
     
-    async def chunk_text(self, file_id: str, project_id: str, text: str) -> List[TextChunk]:
+    async def chunk_text(
+        self, 
+        file_id: str, 
+        project_id: str, 
+        text: str,
+        start_position: int = 0,
+        start_chunk_index: int = 0
+    ) -> List[TextChunk]:
         """
         Split text into semantic chunks using sentence-aware boundaries
         
@@ -99,6 +106,8 @@ class TextExtractionService:
             file_id: File ID
             project_id: Project ID
             text: Text content to chunk
+            start_position: Starting position in the full document (for incremental updates)
+            start_chunk_index: Starting chunk index (for incremental updates)
             
         Returns:
             List of TextChunk objects
@@ -110,7 +119,7 @@ class TextExtractionService:
             chunks = []
             current_chunk_sentences = []
             current_word_count = 0
-            chunk_index = 0
+            chunk_index = start_chunk_index
             
             for i, sentence in enumerate(sentences):
                 sentence_words = len(sentence.split())
@@ -119,14 +128,15 @@ class TextExtractionService:
                 if current_word_count + sentence_words > self.max_chunk_size and current_chunk_sentences:
                     # Finalize current chunk
                     chunk_text = ' '.join(current_chunk_sentences)
-                    start_pos = text.find(current_chunk_sentences[0])
+                    relative_start_pos = text.find(current_chunk_sentences[0])
+                    absolute_start_pos = start_position + max(0, relative_start_pos)
                     
                     chunk = await self._create_text_chunk(
                         file_id=file_id,
                         project_id=project_id,
                         content=chunk_text,
                         chunk_index=chunk_index,
-                        start_position=max(0, start_pos),
+                        start_position=absolute_start_pos,
                         word_count=current_word_count
                     )
                     chunks.append(chunk)
@@ -147,14 +157,15 @@ class TextExtractionService:
             # Add final chunk if it has content
             if current_chunk_sentences and current_word_count >= self.min_chunk_size:
                 chunk_text = ' '.join(current_chunk_sentences)
-                start_pos = text.find(current_chunk_sentences[0])
+                relative_start_pos = text.find(current_chunk_sentences[0])
+                absolute_start_pos = start_position + max(0, relative_start_pos)
                 
                 chunk = await self._create_text_chunk(
                     file_id=file_id,
                     project_id=project_id,
                     content=chunk_text,
                     chunk_index=chunk_index,
-                    start_position=max(0, start_pos),
+                    start_position=absolute_start_pos,
                     word_count=current_word_count
                 )
                 chunks.append(chunk)

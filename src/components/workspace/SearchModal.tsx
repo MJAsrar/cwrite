@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, X, FileText, Loader2, Sparkles } from 'lucide-react';
-import Button from '@/components/ui/Button';
+import { Search, X, FileText, Sparkles } from 'lucide-react';
 import { api } from '@/lib/api';
 
 interface SearchResult {
@@ -35,7 +34,7 @@ export default function SearchModal({ projectId, isOpen, onClose, onResultClick 
 
     try {
       const response = await api.post<any>('/api/v1/search/search', {
-        project_ids: [projectId],  // Backend expects array
+        project_ids: [projectId],
         query: query.trim(),
         limit: 20,
         offset: 0,
@@ -43,20 +42,19 @@ export default function SearchModal({ projectId, isOpen, onClose, onResultClick 
         search_type: 'hybrid'
       });
 
-      // Transform backend response to our format
       const searchResults: SearchResult[] = (response.results || []).map((result: any) => ({
         chunk_id: result.chunk_id || result.id,
         file_id: result.file_id,
-        filename: `Result from file ${result.file_id.slice(-6)}`, // Simplified filename
-        text: result.content || '',  // The actual matching text chunk
+        filename: `Result from file ${result.file_id.slice(-6)}`,
+        text: result.content || '',
         score: result.relevance_score || result.similarity_score || 0,
-        context: result.highlights?.[0] || result.content || ''  // Use highlights for preview
+        context: result.highlights?.[0] || result.content || ''
       }));
 
       setResults(searchResults);
     } catch (error) {
       console.error('Search failed:', error);
-      alert('Search failed. Please try again.');
+      alert('SEARCH FAILED');
       setResults([]);
     } finally {
       setLoading(false);
@@ -72,46 +70,48 @@ export default function SearchModal({ projectId, isOpen, onClose, onResultClick 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm pt-20">
-      <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-3xl max-h-[80vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/80 pt-20 p-4">
+      <div className="border-4 border-white bg-white w-full max-w-3xl max-h-[80vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center gap-3 p-4 border-b border-border">
-          <div className="flex-1 flex items-center gap-2 bg-background rounded-lg px-3 py-2">
-            <Search className="w-5 h-5 text-muted-foreground" />
+        <div className="flex items-center gap-3 p-4 border-b-4 border-[#0A0A0A]">
+          <div className="flex-1 flex items-center gap-2 border-4 border-[#0A0A0A] px-3 py-2">
+            <Search className="w-5 h-5 text-[#0A0A0A]" />
             <input
               type="text"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Search across all files with semantic search..."
-              className="flex-1 bg-transparent border-0 outline-none text-foreground placeholder:text-muted-foreground"
+              placeholder="SEARCH WITH SEMANTIC AI..."
+              className="flex-1 bg-transparent border-0 outline-none text-[#0A0A0A] placeholder:text-gray-400 font-mono text-sm uppercase"
               autoFocus
             />
           </div>
-          <Button
+          <button
             onClick={handleSearch}
             disabled={loading || !query.trim()}
-            className="gap-2"
+            className="border-4 border-[#39FF14] bg-transparent text-[#39FF14] font-mono px-4 py-2 text-xs uppercase font-bold hover:bg-[#39FF14] hover:text-[#0A0A0A] transition-all duration-100 disabled:opacity-50 flex items-center gap-2"
+            style={{ boxShadow: '4px 4px 0 0 #39FF14' }}
+            onMouseEnter={(e) => (!loading && query.trim()) && (e.currentTarget.style.boxShadow = '0 0 0 0 #39FF14')}
+            onMouseLeave={(e) => (!loading && query.trim()) && (e.currentTarget.style.boxShadow = '4px 4px 0 0 #39FF14')}
           >
             {loading ? (
               <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                Searching...
+                <div className="w-4 h-4 border-2 border-t-[#39FF14] border-r-transparent border-b-transparent border-l-transparent animate-spin" />
+                SEARCHING...
               </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4" />
-                Search
+                SEARCH
               </>
             )}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon-sm"
+          </button>
+          <button
             onClick={onClose}
+            className="p-2 text-[#0A0A0A] hover:text-[#FF073A] transition-colors"
           >
-            <X className="w-4 h-4" />
-          </Button>
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Results */}
@@ -119,26 +119,28 @@ export default function SearchModal({ projectId, isOpen, onClose, onResultClick 
           {loading && (
             <div className="flex items-center justify-center py-12">
               <div className="text-center">
-                <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-primary" />
-                <p className="text-muted-foreground">Searching with AI...</p>
+                <div className="w-16 h-16 border-4 border-[#39FF14] flex items-center justify-center mx-auto mb-4">
+                  <div className="w-8 h-8 border-4 border-t-[#39FF14] border-r-transparent border-b-transparent border-l-transparent animate-spin" />
+                </div>
+                <p className="font-mono text-sm text-[#0A0A0A] uppercase font-bold">SEARCHING WITH AI...</p>
               </div>
             </div>
           )}
 
           {!loading && searched && results.length === 0 && (
             <div className="text-center py-12">
-              <Search className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
-              <p className="text-foreground font-medium mb-1">No results found</p>
-              <p className="text-muted-foreground text-sm">Try a different search query</p>
+              <Search className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+              <p className="font-black text-xl uppercase text-[#0A0A0A] mb-1">NO RESULTS</p>
+              <p className="font-mono text-xs text-gray-600 uppercase">TRY A DIFFERENT QUERY</p>
             </div>
           )}
 
           {!loading && !searched && (
             <div className="text-center py-12">
-              <Sparkles className="w-12 h-12 mx-auto mb-3 text-primary opacity-50" />
-              <p className="text-foreground font-medium mb-1">Semantic Search</p>
-              <p className="text-muted-foreground text-sm max-w-md mx-auto">
-                Search by meaning, not just keywords. Results show the actual text passages that match your query.
+              <Sparkles className="w-16 h-16 mx-auto mb-4 text-[#39FF14]" />
+              <p className="font-black text-xl uppercase text-[#0A0A0A] mb-2">SEMANTIC SEARCH</p>
+              <p className="font-mono text-xs text-gray-600 max-w-md mx-auto uppercase leading-relaxed">
+                SEARCH BY MEANING, NOT JUST KEYWORDS
               </p>
             </div>
           )}
@@ -154,22 +156,20 @@ export default function SearchModal({ projectId, isOpen, onClose, onResultClick 
                     }
                     onClose();
                   }}
-                  className="w-full text-left p-4 bg-background hover:bg-accent rounded-lg border border-border transition-colors group"
+                  className="w-full text-left p-4 border-4 border-[#0A0A0A] bg-gray-50 hover:bg-[#39FF14] transition-all duration-100 group"
                 >
-                  {/* Score Badge */}
                   <div className="flex items-center justify-between gap-3 mb-3">
-                    <div className="flex items-center gap-1 px-2 py-1 bg-primary/10 rounded text-xs font-medium text-primary">
+                    <div className="flex items-center gap-1 px-2 py-1 bg-[#39FF14] border-2 border-[#0A0A0A] font-mono text-xs font-bold text-[#0A0A0A] uppercase">
                       <Sparkles className="w-3 h-3" />
-                      {Math.round(result.score * 100)}% match
+                      {Math.round(result.score * 100)}% MATCH
                     </div>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                    <div className="flex items-center gap-1 font-mono text-xs text-gray-600 uppercase">
                       <FileText className="w-3 h-3" />
                       <span className="truncate max-w-[150px]">{result.filename}</span>
                     </div>
                   </div>
                   
-                  {/* Main Text Content - This is what matched! */}
-                  <p className="text-sm text-foreground leading-relaxed line-clamp-4 group-hover:text-foreground">
+                  <p className="font-mono text-xs text-[#0A0A0A] leading-relaxed line-clamp-4">
                     {result.text || result.context}
                   </p>
                 </button>
@@ -179,14 +179,12 @@ export default function SearchModal({ projectId, isOpen, onClose, onResultClick 
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-border bg-muted/30">
-          <p className="text-xs text-muted-foreground text-center">
-            Press <kbd className="px-1.5 py-0.5 bg-background border border-border rounded text-xs">Enter</kbd> to search •{' '}
-            <kbd className="px-1.5 py-0.5 bg-background border border-border rounded text-xs">Esc</kbd> to close
+        <div className="p-4 border-t-4 border-[#0A0A0A] bg-gray-50">
+          <p className="font-mono text-xs text-gray-600 text-center uppercase">
+            PRESS ENTER TO SEARCH • ESC TO CLOSE
           </p>
         </div>
       </div>
     </div>
   );
 }
-

@@ -5,7 +5,6 @@ import { useParams } from 'next/navigation';
 import { Project, ProjectFile, Entity, Relationship } from '@/types';
 import { api } from '@/lib/api';
 import VSCodeWorkspace from '@/components/workspace/VSCodeWorkspace';
-import { Loader2 } from 'lucide-react';
 
 export default function ProjectPage() {
   const params = useParams();
@@ -29,7 +28,6 @@ export default function ProjectPage() {
       setLoading(true);
       setError(null);
 
-      // Load project data in parallel
       const [projectResponse, filesResponse, entitiesResponse, relationshipsResponse] = await Promise.allSettled([
         api.projects.get(projectId),
         api.files.list(projectId),
@@ -64,44 +62,25 @@ export default function ProjectPage() {
   };
 
   const handleFileUpload = async (uploadedFiles: File[]) => {
-    console.log('🔵 Page: handleFileUpload called with', uploadedFiles.length, 'files');
     try {
-      const uploadPromises = uploadedFiles.map(file => {
-        console.log(`🔵 Uploading file via API: ${file.name}`);
-        return api.files.upload(projectId, file);
-      });
-      
-      console.log('🔵 Waiting for uploads...');
+      const uploadPromises = uploadedFiles.map(file => api.files.upload(projectId, file));
       const results = await Promise.allSettled(uploadPromises);
       
       const newFiles = results
         .filter(result => result.status === 'fulfilled')
         .map(result => (result as PromiseFulfilledResult<any>).value);
       
-      console.log(`🔵 Upload results: ${newFiles.length} successful`);
-      
       const failedResults = results.filter(result => result.status === 'rejected');
       if (failedResults.length > 0) {
         const errorMessages: string[] = [];
         failedResults.forEach((result, index) => {
           const reason = (result as PromiseRejectedResult).reason;
-          console.error(`🔵 Failed upload ${index + 1}:`, reason);
-          
-          // Extract meaningful error message
           let errorMsg = 'Unknown error';
           if (reason?.message) {
             errorMsg = reason.message;
           } else if (reason?.detail) {
             errorMsg = reason.detail;
-          } else if (reason?.error) {
-            errorMsg = reason.error;
           }
-          
-          // Check for specific error types
-          if (reason?.status === 409 || errorMsg.includes('already exists')) {
-            errorMsg = 'File already exists in this project. Please rename or delete the existing file first.';
-          }
-          
           errorMessages.push(`File ${index + 1}: ${errorMsg}`);
         });
         
@@ -110,14 +89,11 @@ export default function ProjectPage() {
       
       setFiles(prev => [...prev, ...newFiles]);
       
-      // Refresh project data to get updated stats
       const updatedProject = await api.projects.get(projectId);
       setProject(updatedProject as Project);
       
-      console.log('🔵 Upload complete!');
-      
     } catch (err: any) {
-      console.error('🔵 Failed to upload files:', err);
+      console.error('Failed to upload files:', err);
       alert(`Upload failed: ${err.message || 'Unknown error'}`);
     }
   };
@@ -127,7 +103,6 @@ export default function ProjectPage() {
       await api.files.delete(fileId);
       setFiles(prev => prev.filter(file => file.id !== fileId));
       
-      // Refresh project data to get updated stats
       const updatedProject = await api.projects.get(projectId);
       setProject(updatedProject as Project);
       
@@ -138,10 +113,12 @@ export default function ProjectPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-screen bg-[#0A0A0A]">
         <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-4 text-primary-600" />
-          <p className="text-secondary-600">Loading project...</p>
+          <div className="w-16 h-16 border-4 border-[#39FF14] flex items-center justify-center mx-auto mb-4">
+            <div className="w-8 h-8 border-4 border-t-[#39FF14] border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+          </div>
+          <p className="font-mono text-sm text-[#39FF14] uppercase">LOADING PROJECT...</p>
         </div>
       </div>
     );
@@ -149,14 +126,17 @@ export default function ProjectPage() {
 
   if (error || !project) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-center">
-          <p className="text-red-600 mb-4">{error || 'Project not found'}</p>
+      <div className="flex items-center justify-center min-h-screen bg-[#0A0A0A]">
+        <div className="border-4 border-[#FF073A] bg-white p-8 text-center">
+          <p className="font-mono text-sm text-[#FF073A] uppercase mb-4">{error || 'PROJECT NOT FOUND'}</p>
           <button 
             onClick={loadProjectData}
-            className="text-primary-600 hover:text-primary-700 font-medium"
+            className="border-4 border-[#FF073A] bg-transparent text-[#FF073A] font-mono px-6 py-3 text-sm uppercase font-bold hover:bg-[#FF073A] hover:text-white transition-all duration-100"
+            style={{ boxShadow: '6px 6px 0 0 #FF073A' }}
+            onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 0 0 0 #FF073A'}
+            onMouseLeave={(e) => e.currentTarget.style.boxShadow = '6px 6px 0 0 #FF073A'}
           >
-            Try Again
+            TRY AGAIN
           </button>
         </div>
       </div>
