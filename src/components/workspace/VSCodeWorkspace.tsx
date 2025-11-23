@@ -4,19 +4,14 @@ import { useState, useRef, useEffect } from 'react';
 import { Project, ProjectFile, Entity, Relationship } from '@/types';
 import { 
   FileText, 
-  Folder,
-  Settings,
-  Search,
   Upload,
   Network,
   Users,
   PanelRightOpen,
   PanelRightClose,
-  Trash2,
-  MoreVertical,
-  Loader2,
-  CheckCircle,
-  AlertCircle
+  Search,
+  Settings,
+  Loader2
 } from 'lucide-react';
 import TextEditor from './TextEditor';
 import AIChatPanel from './AIChatPanel';
@@ -24,7 +19,6 @@ import SearchModal from './SearchModal';
 import EntitiesModal from './EntitiesModal';
 import RelationshipsModal from './RelationshipsModal';
 import EnhancedFileTree from './EnhancedFileTree';
-import Button from '@/components/ui/Button';
 import { readFileContent } from '@/lib/fileReader';
 import { api } from '@/lib/api';
 
@@ -52,17 +46,15 @@ export default function VSCodeWorkspace({
   const [showSearchModal, setShowSearchModal] = useState(false);
   const [showEntitiesModal, setShowEntitiesModal] = useState(false);
   const [showRelationshipsModal, setShowRelationshipsModal] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Ctrl+K or Cmd+K for search
       if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
         e.preventDefault();
         setShowSearchModal(true);
       }
-      // Escape to close modals
       if (e.key === 'Escape') {
         setShowSearchModal(false);
         setShowEntitiesModal(false);
@@ -74,16 +66,11 @@ export default function VSCodeWorkspace({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // Auto-refresh when files are processing
   useEffect(() => {
     const processingFiles = files.filter(f => f.processing_status === 'processing');
     
     if (processingFiles.length > 0) {
-      console.log(`🔄 ${processingFiles.length} file(s) processing, will auto-refresh...`);
-      
-      // Poll every 5 seconds while files are processing
       const interval = setInterval(async () => {
-        console.log('🔄 Polling for updates...');
         await onRefresh();
       }, 5000);
 
@@ -92,7 +79,6 @@ export default function VSCodeWorkspace({
   }, [files, onRefresh]);
 
   const handleFileSelect = (file: ProjectFile) => {
-    console.log('📂 Selected file:', file.filename, 'Content length:', file.text_content?.length || 0);
     setSelectedFile(file);
   };
 
@@ -100,18 +86,14 @@ export default function VSCodeWorkspace({
     const selectedFiles = e.target.files;
     if (!selectedFiles || selectedFiles.length === 0) return;
 
-    console.log('📤 Files selected:', selectedFiles.length);
-
     try {
-      // Read file contents
       const fileContents = await Promise.all(
         Array.from(selectedFiles).map(async (file) => {
           try {
             const { text } = await readFileContent(file);
-            console.log(`✅ Read ${file.name}: ${text.length} characters`);
             return file;
           } catch (error) {
-            console.error(`❌ Failed to read ${file.name}:`, error);
+            console.error(`Failed to read ${file.name}:`, error);
             alert(`Failed to read ${file.name}`);
             return null;
           }
@@ -128,7 +110,6 @@ export default function VSCodeWorkspace({
       alert('Failed to upload files');
     }
 
-    // Reset input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -137,44 +118,42 @@ export default function VSCodeWorkspace({
   const handleFileSave = async (content: string, newFilename?: string) => {
     try {
       if (selectedFile) {
-        // Update existing file
         await api.put(`/api/v1/files/${selectedFile.id}`, {
           text_content: content
         });
         alert('File saved successfully!');
         await onRefresh();
       } else if (newFilename) {
-        // Create new file
         const blob = new Blob([content], { type: 'text/plain' });
         const file = new File([blob], newFilename, { type: 'text/plain' });
         await onFileUpload([file]);
         await onRefresh();
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Save error:', error);
-      alert('Failed to save file');
+      const errorMessage = error?.response?.data?.detail || error?.message || 'Failed to save file';
+      alert(errorMessage);
     }
   };
 
   return (
-    <div className="h-screen flex flex-col bg-background">
-      {/* VS Code-like Header */}
-      <header className="h-11 bg-card border-b border-border flex items-center justify-between px-4">
-        <div className="flex items-center gap-4">
-          <h1 className="font-semibold text-foreground">{project.name}</h1>
-          <div className="flex items-center gap-3 text-xs text-muted-foreground">
-            <span>{files.length} files</span>
+    <div className="h-screen flex flex-col bg-[#0A0A0A]">
+      {/* Header */}
+      <header className="h-14 bg-white border-b-4 border-[#0A0A0A] flex items-center justify-between px-6">
+        <div className="flex items-center gap-6">
+          <h1 className="text-xl font-black uppercase text-[#0A0A0A]">{project.name}</h1>
+          <div className="flex items-center gap-4 font-mono text-xs text-gray-600 uppercase">
+            <span className="font-bold">{files.length} FILES</span>
             {files.filter(f => f.processing_status === 'processing').length > 0 && (
-              <span className="flex items-center gap-1.5 text-blue-500 animate-pulse">
-                <Loader2 className="w-3 h-3 animate-spin" />
-                Processing...
+              <span className="flex items-center gap-2 text-[#39FF14]">
+                <div className="w-3 h-3 border-2 border-t-[#39FF14] border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+                PROCESSING...
               </span>
             )}
           </div>
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Hidden file input */}
           <input
             ref={fileInputRef}
             type="file"
@@ -184,72 +163,64 @@ export default function VSCodeWorkspace({
             className="hidden"
           />
 
-          {/* Header Actions */}
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
             onClick={() => fileInputRef.current?.click()}
-            className="gap-2"
+            className="flex items-center gap-2 px-4 py-2 border-4 border-[#0A0A0A] bg-transparent text-[#0A0A0A] font-mono text-xs uppercase font-bold hover:bg-[#0A0A0A] hover:text-white transition-all duration-100"
+            style={{ boxShadow: '4px 4px 0 0 #0A0A0A' }}
+            onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 0 0 0 #0A0A0A'}
+            onMouseLeave={(e) => e.currentTarget.style.boxShadow = '4px 4px 0 0 #0A0A0A'}
           >
             <Upload className="w-4 h-4" />
-            Upload
-          </Button>
+            UPLOAD
+          </button>
 
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
             onClick={() => setShowSearchModal(true)}
-            className="gap-2"
+            className="flex items-center gap-2 px-4 py-2 border-4 border-[#0A0A0A] bg-transparent text-[#0A0A0A] font-mono text-xs uppercase font-bold hover:bg-[#39FF14] transition-all duration-100"
           >
             <Search className="w-4 h-4" />
-            Search
-          </Button>
+            SEARCH
+          </button>
 
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
             onClick={() => setShowEntitiesModal(true)}
-            className="gap-2"
+            className="flex items-center gap-2 px-4 py-2 border-4 border-[#0A0A0A] bg-transparent text-[#0A0A0A] font-mono text-xs uppercase font-bold hover:bg-[#39FF14] transition-all duration-100"
           >
             <Users className="w-4 h-4" />
-            Entities ({entities.length})
-          </Button>
+            ENTITIES ({entities.length})
+          </button>
 
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
             onClick={() => setShowRelationshipsModal(true)}
-            className="gap-2"
+            className="flex items-center gap-2 px-4 py-2 border-4 border-[#0A0A0A] bg-transparent text-[#0A0A0A] font-mono text-xs uppercase font-bold hover:bg-[#39FF14] transition-all duration-100"
           >
             <Network className="w-4 h-4" />
-            Relationships ({relationships.length})
-          </Button>
+            RELATIONS ({relationships.length})
+          </button>
 
-          <div className="w-px h-6 bg-border mx-2" />
+          <div className="w-1 h-8 bg-[#0A0A0A] mx-2" />
 
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
             onClick={() => setShowRightSidebar(!showRightSidebar)}
-            title={showRightSidebar ? 'Hide AI Panel' : 'Show AI Panel'}
+            className="p-2 text-[#0A0A0A] hover:text-[#39FF14] transition-colors"
+            title={showRightSidebar ? 'HIDE AI PANEL' : 'SHOW AI PANEL'}
           >
-            {showRightSidebar ? <PanelRightClose className="w-4 h-4" /> : <PanelRightOpen className="w-4 h-4" />}
-          </Button>
+            {showRightSidebar ? <PanelRightClose className="w-5 h-5" /> : <PanelRightOpen className="w-5 h-5" />}
+          </button>
 
-          <Button
-            variant="ghost"
-            size="sm"
+          <button
             onClick={() => setShowMenu(!showMenu)}
+            className="p-2 text-[#0A0A0A] hover:text-[#39FF14] transition-colors"
           >
-            <Settings className="w-4 h-4" />
-          </Button>
+            <Settings className="w-5 h-5" />
+          </button>
         </div>
       </header>
 
       {/* Main Content Area */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Sidebar - File Explorer */}
-        <aside className="w-64 bg-card border-r border-border">
+        <aside className="w-64 bg-white border-r-4 border-[#0A0A0A]">
           <EnhancedFileTree
             files={files}
             selectedFileId={selectedFile?.id}
@@ -274,16 +245,17 @@ export default function VSCodeWorkspace({
         <main className="flex-1 overflow-hidden">
           <TextEditor
             file={selectedFile || undefined}
+            projectId={project.id}
             onSave={handleFileSave}
           />
         </main>
 
-        {/* Right Sidebar - AI Chat (Collapsible) */}
+        {/* Right Sidebar - AI Chat */}
         {showRightSidebar && (
-          <aside className="w-80 bg-card border-l border-border">
+          <aside className="w-80 bg-white border-l-4 border-[#0A0A0A]">
             <AIChatPanel 
               projectId={project.id} 
-              fileId={selectedFile?.id || selectedFile?._id}
+              fileId={selectedFile?.id}
               projectName={project.name}
             />
           </aside>
@@ -296,7 +268,6 @@ export default function VSCodeWorkspace({
         isOpen={showSearchModal}
         onClose={() => setShowSearchModal(false)}
         onResultClick={(fileId, chunkId) => {
-          // Find and open the file
           const file = files.find(f => f.id === fileId);
           if (file) {
             handleFileSelect(file);
@@ -310,7 +281,6 @@ export default function VSCodeWorkspace({
         onClose={() => setShowEntitiesModal(false)}
         onEntityClick={(entityId) => {
           console.log('Entity clicked:', entityId);
-          // TODO: Show entity details or mentions
         }}
       />
 
@@ -320,10 +290,8 @@ export default function VSCodeWorkspace({
         onClose={() => setShowRelationshipsModal(false)}
         onRelationshipClick={(relationshipId) => {
           console.log('Relationship clicked:', relationshipId);
-          // TODO: Show relationship details
         }}
       />
     </div>
   );
 }
-

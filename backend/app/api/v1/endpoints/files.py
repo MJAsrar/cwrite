@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, BackgroundTasks, Query
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 from typing import List, Optional, Dict, Any
 import logging
 from datetime import datetime
@@ -481,6 +482,151 @@ async def get_project_file_stats(
         raise HTTPException(status_code=500, detail="Failed to retrieve file statistics")
 
 
+async def process_incremental_update(
+    file_id: str,
+    project_id: str,
+    old_content: str,
+    new_content: str
+):
+    """
+    Background task to process incremental content updates
+    
+    Only processes the new/changed content instead of reprocessing everything.
+    
+    Args:
+        file_id: File ID being updated
+        project_id: Project ID
+        old_content: Previous content
+        new_content: New content
+    """
+    try:
+        logger.info(f"Starting incremental processing for file {file_id}")
+        
+        # Import services
+        from app.services.entity_extraction_service import EntityExtractionService
+        from app.services.embedding_service import EmbeddingService
+        from app.services.relationship_discovery_service import RelationshipDiscoveryService
+        from app.repositories.entity_repository import EntityRepository
+        from app.repositories.relationship_repository import RelationshipRepository
+        from app.repositories.text_chunk_repository import TextChunkRepository
+        
+        # Update processing status
+        await file_repository.update_processing_status(
+            file_id, 
+            ProcessingStatus.PROCESSING,
+            None
+        )
+        
+        # Detect what changed
+        old_length = len(old_content)
+        new_length = len(new_content)
+        
+        # If content was appended (most common case for writing)
+        if new_content.startswith(old_content):
+            # Only process the new part
+            added_content = new_content[old_length:]
+            logger.info(f"Detected {len(added_content)} new characters appended")
+            
+            # Initialize repositories and services
+            entity_repo = EntityRepository()
+            relationship_repo = RelationshipRepository()
+            text_chunk_repo = TextChunkRepository()
+            
+            entity_service = EntityExtractionService(entity_repo)
+            embedding_service = EmbeddingService(text_chunk_repo)
+            relationship_service = RelationshipDiscoveryService(
+                entity_repo, relationship_repo, text_chunk_repo
+            )
+            
+            # Get existing chunks to determine starting index
+            existing_chunks = await text_chunk_repo.get_by_file(file_id, limit=10000)
+            next_chunk_index = len(existing_chunks)
+            
+            # Chunk only the new content
+            new_chunks = await text_extraction_service.chunk_text(
+                file_id, 
+                project_id, 
+                added_content,
+                start_position=old_length,
+                start_chunk_index=next_chunk_index
+            )
+            logger.info(f"Created {len(new_chunks)} new text chunks")
+            
+            # Extract entities from new content only
+            new_entities = await entity_service.extract_entities_from_text(
+                added_content, file_id, project_id
+            )
+            logger.info(f"Extracted {len(new_entities)} entities from new content")
+            
+            # Merge with existing entities
+            saved_entities = []
+            for entity in new_entities:
+                existing = await entity_repo.get_by_name(project_id, entity.name, entity.type)
+                if existing:
+                    # Update existing entity
+                    update_data = {
+                        'mention_count': existing.mention_count + entity.mention_count,
+                        'confidence_score': (existing.confidence_score + entity.confidence_score) / 2,
+                        'last_mentioned': entity.last_mentioned
+                    }
+                    updated = await entity_repo.update_by_id(existing.id, update_data)
+                    saved_entities.append(updated)
+                else:
+                    # Create new entity
+                    saved_entity = await entity_repo.create(entity)
+                    saved_entities.append(saved_entity)
+            
+            # Generate embeddings for new chunks only
+            chunk_data = []
+            for chunk in new_chunks:
+                chunk_data.append({
+                    'content': chunk.content,
+                    'start_position': chunk.start_position,
+                    'end_position': chunk.end_position,
+                    'chunk_index': chunk.chunk_index,
+                    'word_count': chunk.word_count,
+                    'entities_mentioned': []
+                })
+            
+            created_chunks = await embedding_service.store_text_chunks_with_embeddings(
+                file_id, project_id, chunk_data
+            )
+            logger.info(f"Generated embeddings for {len(created_chunks)} new chunks")
+            
+            # Discover relationships (only for new entities)
+            if saved_entities:
+                new_entity_ids = [e.id for e in saved_entities]
+                relationships = await relationship_service.discover_relationships_for_entities(
+                    project_id, new_entity_ids
+                )
+                logger.info(f"Discovered {len(relationships)} new relationships")
+            
+        else:
+            # Content was modified in complex ways, do full reprocessing
+            logger.info("Content modified significantly, triggering full reprocessing")
+            await process_uploaded_file(file_id, project_id, reprocess=True)
+            return
+        
+        # Update processing status to completed
+        await file_repository.update_processing_status(
+            file_id, 
+            ProcessingStatus.COMPLETED,
+            None
+        )
+        
+        logger.info(f"Incremental processing completed for file {file_id}")
+        
+    except Exception as e:
+        logger.error(f"Error in incremental processing for file {file_id}: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        await file_repository.update_processing_status(
+            file_id, 
+            ProcessingStatus.FAILED,
+            str(e)
+        )
+
+
 async def process_uploaded_file(file_id: str, project_id: str, reprocess: bool = False):
     """
     Background task to process uploaded file with full indexing pipeline
@@ -571,10 +717,12 @@ async def process_uploaded_file(file_id: str, project_id: str, reprocess: bool =
             existing = await entity_repo.get_by_name(project_id, entity.name, entity.type)
             if existing:
                 # Update existing entity (merge mentions, update confidence)
-                existing.mention_count += entity.mention_count
-                existing.confidence_score = (existing.confidence_score + entity.confidence_score) / 2
-                existing.last_mentioned = entity.last_mentioned
-                updated = await entity_repo.update_by_id(existing.id, existing)
+                update_data = {
+                    'mention_count': existing.mention_count + entity.mention_count,
+                    'confidence_score': (existing.confidence_score + entity.confidence_score) / 2,
+                    'last_mentioned': entity.last_mentioned
+                }
+                updated = await entity_repo.update_by_id(existing.id, update_data)
                 saved_entities.append(updated)
                 logger.debug(f"Updated existing entity: {entity.name}")
             else:
@@ -675,3 +823,91 @@ async def get_file_processing_status(
     except Exception as e:
         logger.error(f"Error getting processing status for file {file_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to retrieve processing status")
+
+
+class FileUpdateRequest(BaseModel):
+    """Request model for file content updates"""
+    text_content: str
+
+
+@router.put("/files/{file_id}", response_model=FileResponse)
+async def update_file_content(
+    file_id: str,
+    update_request: FileUpdateRequest,
+    background_tasks: BackgroundTasks,
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Update file content and trigger incremental processing
+    
+    - **file_id**: File ID to update
+    - **text_content**: New text content
+    
+    Returns the updated file record
+    """
+    try:
+        # Get file record
+        file_record = await file_repository.get_by_id(file_id)
+        if not file_record:
+            raise HTTPException(status_code=404, detail="File not found")
+        
+        # Verify user has access to the project
+        project = await project_repository.get_by_id(file_record.project_id)
+        if not project or project.owner_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Access denied")
+        
+        # Get old content for comparison
+        old_content = file_record.text_content or ""
+        new_content = update_request.text_content or ""
+        
+        # Update file content
+        await file_repository.update_text_content(
+            file_id,
+            new_content,
+            {
+                "word_count": len(new_content.split()),
+                "character_count": len(new_content),
+                "line_count": len(new_content.split('\n'))
+            }
+        )
+        
+        # Trigger incremental processing if content changed
+        if old_content != new_content:
+            background_tasks.add_task(
+                process_incremental_update,
+                file_id,
+                file_record.project_id,
+                old_content,
+                new_content
+            )
+        
+        # Get updated file record
+        updated_file = await file_repository.get_by_id(file_id)
+        
+        # Convert to response model
+        response = FileResponse(
+            id=updated_file.id,
+            project_id=updated_file.project_id,
+            filename=updated_file.filename,
+            original_filename=updated_file.original_filename,
+            content_type=updated_file.content_type,
+            size=updated_file.size,
+            upload_status=updated_file.upload_status,
+            processing_status=updated_file.processing_status,
+            created_at=updated_file.created_at,
+            updated_at=updated_file.updated_at,
+            metadata=updated_file.metadata,
+            error_message=updated_file.error_message,
+            text_content=updated_file.text_content
+        )
+        
+        logger.info(f"File {file_id} content updated successfully")
+        return response
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        logger.error(f"Error updating file {file_id}: {e}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"File update failed: {str(e)}")

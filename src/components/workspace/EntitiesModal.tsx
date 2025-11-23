@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { X, Users, Filter, Search, User, MapPin, Lightbulb, BookOpen } from 'lucide-react';
-import Button from '@/components/ui/Button';
 import { Entity } from '@/types';
 
 interface EntitiesModalProps {
@@ -21,17 +20,6 @@ const ENTITY_TYPE_ICONS: Record<string, any> = {
   CONCEPT: Lightbulb,
   ORGANIZATION: Users,
   EVENT: BookOpen,
-};
-
-const ENTITY_TYPE_COLORS: Record<string, string> = {
-  CHARACTER: 'text-blue-500 bg-blue-500/10',
-  PERSON: 'text-blue-500 bg-blue-500/10',
-  LOCATION: 'text-green-500 bg-green-500/10',
-  PLACE: 'text-green-500 bg-green-500/10',
-  THEME: 'text-purple-500 bg-purple-500/10',
-  CONCEPT: 'text-purple-500 bg-purple-500/10',
-  ORGANIZATION: 'text-orange-500 bg-orange-500/10',
-  EVENT: 'text-pink-500 bg-pink-500/10',
 };
 
 export default function EntitiesModal({ entities, isOpen, onClose, onEntityClick }: EntitiesModalProps) {
@@ -69,76 +57,69 @@ export default function EntitiesModal({ entities, isOpen, onClose, onEntityClick
   if (!isOpen) return null;
 
   const getEntityIcon = (type: string) => {
-    // Normalize type to uppercase for lookup
     const normalizedType = type?.toUpperCase() || '';
     const Icon = ENTITY_TYPE_ICONS[normalizedType] || Users;
     return Icon;
   };
 
-  const getEntityColor = (type: string) => {
-    // Normalize type to uppercase for lookup
-    const normalizedType = type?.toUpperCase() || '';
-    return ENTITY_TYPE_COLORS[normalizedType] || 'text-gray-500 bg-gray-500/10';
-  };
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
+      <div className="border-4 border-white bg-white w-full max-w-4xl max-h-[85vh] flex flex-col">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
+        <div className="flex items-center justify-between p-4 border-b-4 border-[#0A0A0A]">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-primary/10 rounded-lg">
-              <Users className="w-5 h-5 text-primary" />
+            <div className="w-12 h-12 bg-[#39FF14] border-4 border-[#0A0A0A] flex items-center justify-center">
+              <Users className="w-6 h-6 text-[#0A0A0A]" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-foreground">Entities</h2>
-              <p className="text-sm text-muted-foreground">
-                {filteredEntities.length} of {entities.length} entities
+              <h2 className="text-xl font-black uppercase text-[#0A0A0A]">ENTITIES</h2>
+              <p className="font-mono text-xs text-gray-600 uppercase">
+                {filteredEntities.length} OF {entities.length} FOUND
               </p>
             </div>
           </div>
-          <Button variant="ghost" size="icon-sm" onClick={onClose}>
-            <X className="w-4 h-4" />
-          </Button>
+          <button onClick={onClose} className="p-2 text-[#0A0A0A] hover:text-[#FF073A] transition-colors">
+            <X className="w-5 h-5" />
+          </button>
         </div>
 
         {/* Search and Filters */}
-        <div className="p-4 border-b border-border space-y-3">
-          {/* Search */}
-          <div className="flex items-center gap-2 bg-background rounded-lg px-3 py-2">
-            <Search className="w-4 h-4 text-muted-foreground" />
+        <div className="p-4 border-b-4 border-[#0A0A0A] space-y-3">
+          <div className="flex items-center gap-2 border-4 border-[#0A0A0A] px-3 py-2">
+            <Search className="w-4 h-4 text-[#0A0A0A]" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search entities..."
-              className="flex-1 bg-transparent border-0 outline-none text-foreground placeholder:text-muted-foreground text-sm"
+              placeholder="SEARCH ENTITIES..."
+              className="flex-1 bg-transparent border-0 outline-none text-[#0A0A0A] placeholder:text-gray-400 font-mono text-xs uppercase"
             />
           </div>
 
-          {/* Type Filters */}
           <div className="flex items-center gap-2 flex-wrap">
-            <Filter className="w-4 h-4 text-muted-foreground" />
-            <Button
-              variant={selectedType === null ? 'default' : 'outline'}
-              size="sm"
+            <Filter className="w-4 h-4 text-[#0A0A0A]" />
+            <button
               onClick={() => setSelectedType(null)}
+              className={`px-3 py-1 border-2 font-mono text-xs uppercase font-bold transition-all duration-100 ${
+                selectedType === null 
+                  ? 'border-[#39FF14] bg-[#39FF14] text-[#0A0A0A]' 
+                  : 'border-[#0A0A0A] bg-transparent text-[#0A0A0A] hover:bg-gray-100'
+              }`}
             >
-              All
-            </Button>
+              ALL
+            </button>
             {entityTypes.map(type => (
-              <Button
+              <button
                 key={type}
-                variant={selectedType === type ? 'default' : 'outline'}
-                size="sm"
                 onClick={() => setSelectedType(type)}
-                className="gap-1.5"
+                className={`px-3 py-1 border-2 font-mono text-xs uppercase font-bold transition-all duration-100 ${
+                  selectedType === type 
+                    ? 'border-[#39FF14] bg-[#39FF14] text-[#0A0A0A]' 
+                    : 'border-[#0A0A0A] bg-transparent text-[#0A0A0A] hover:bg-gray-100'
+                }`}
               >
-                {type}
-                <span className="text-xs opacity-70">
-                  ({entities.filter(e => e.type === type).length})
-                </span>
-              </Button>
+                {type} ({entities.filter(e => e.type === type).length})
+              </button>
             ))}
           </div>
         </div>
@@ -147,21 +128,18 @@ export default function EntitiesModal({ entities, isOpen, onClose, onEntityClick
         <div className="flex-1 overflow-y-auto p-4">
           {filteredEntities.length === 0 ? (
             <div className="text-center py-12">
-              <Users className="w-12 h-12 mx-auto mb-3 text-muted-foreground opacity-50" />
-              <p className="text-foreground font-medium mb-1">No entities found</p>
-              <p className="text-muted-foreground text-sm">
-                {searchQuery ? 'Try a different search' : 'Upload files to extract entities'}
+              <Users className="w-16 h-16 mx-auto mb-4 text-gray-300" />
+              <p className="font-black text-xl uppercase text-[#0A0A0A] mb-1">NO ENTITIES</p>
+              <p className="font-mono text-xs text-gray-600 uppercase">
+                {searchQuery ? 'TRY DIFFERENT SEARCH' : 'UPLOAD FILES TO EXTRACT'}
               </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {filteredEntities.map((entity, index) => {
                 const Icon = getEntityIcon(entity.type);
-                const colorClass = getEntityColor(entity.type);
-                
-                // Use either id or _id, with fallback to index
-                const entityKey = entity.id || entity._id || `entity-${entity.name}-${index}`;
-                const entityId = entity.id || entity._id;
+                const entityKey = entity.id || `entity-${entity.name}-${index}`;
+                const entityId = entity.id;
 
                 return (
                   <button
@@ -171,23 +149,28 @@ export default function EntitiesModal({ entities, isOpen, onClose, onEntityClick
                         onEntityClick(entityId);
                       }
                     }}
-                    className="text-left p-4 bg-background hover:bg-accent rounded-lg border border-border transition-colors"
+                    className="text-left p-4 border-4 border-[#0A0A0A] bg-gray-50 hover:bg-[#39FF14]/10 transition-all duration-100"
                   >
                     <div className="flex items-start gap-3">
-                      <div className={`p-2 rounded-lg ${colorClass} flex-shrink-0`}>
-                        <Icon className="w-4 h-4" />
+                      <div className="w-10 h-10 border-4 border-[#0A0A0A] bg-[#FF073A] flex items-center justify-center flex-shrink-0">
+                        <Icon className="w-5 h-5 text-white" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-start justify-between gap-2 mb-1">
-                          <h3 className="font-medium text-foreground truncate">
+                        <div className="flex items-start justify-between gap-2 mb-2">
+                          <h3 className="font-black text-sm uppercase text-[#0A0A0A] truncate">
                             {entity.name}
                           </h3>
-                          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded flex-shrink-0">
-                            {entity.mention_count || 0} mentions
+                          <span className="font-mono text-xs bg-[#0A0A0A] text-white px-2 py-1 flex-shrink-0">
+                            {entity.mention_count || 0}
+                          </span>
+                        </div>
+                        <div className="mb-2">
+                          <span className="inline-block px-2 py-0.5 bg-[#39FF14] border-2 border-[#0A0A0A] font-mono text-xs font-bold text-[#0A0A0A] uppercase">
+                            {entity.type}
                           </span>
                         </div>
                         {entity.description && (
-                          <p className="text-sm text-muted-foreground line-clamp-2 mb-2">
+                          <p className="font-mono text-xs text-gray-600 line-clamp-2 mb-2">
                             {entity.description}
                           </p>
                         )}
@@ -196,14 +179,14 @@ export default function EntitiesModal({ entities, isOpen, onClose, onEntityClick
                             {entity.aliases.slice(0, 3).map((alias, i) => (
                               <span
                                 key={`${entityKey}-alias-${i}-${alias}`}
-                                className="text-xs bg-muted text-muted-foreground px-2 py-0.5 rounded"
+                                className="font-mono text-xs bg-white border-2 border-[#0A0A0A] text-[#0A0A0A] px-2 py-0.5"
                               >
                                 {alias}
                               </span>
                             ))}
                             {entity.aliases.length > 3 && (
-                              <span className="text-xs text-muted-foreground">
-                                +{entity.aliases.length - 3} more
+                              <span className="font-mono text-xs text-gray-600">
+                                +{entity.aliases.length - 3}
                               </span>
                             )}
                           </div>

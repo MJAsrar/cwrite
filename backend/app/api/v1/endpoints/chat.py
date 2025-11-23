@@ -20,7 +20,7 @@ from ....models.user import User
 router = APIRouter()
 
 
-@router.post("/chat", response_model=ChatResponse)
+@router.post("/", response_model=ChatResponse)
 async def chat(
     request: ChatRequest,
     current_user: User = Depends(get_current_user)
