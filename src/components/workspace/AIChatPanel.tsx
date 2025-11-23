@@ -6,61 +6,119 @@ import {
   Sparkles, 
   User, 
   Bot,
-  Trash2
+  Trash2,
+  FileText
 } from 'lucide-react';
 import { api } from '@/lib/api';
+import DiffViewer from './DiffViewer';
+
+interface EditProposal {
+  id: string;
+  file_id: string;
+  file_name: string;
+  start_line: number;
+  end_line: number;
+  original_text: string;
+  proposed_text: string;
+  reasoning: string;
+  confidence: number;
+  status: string;
+}
 
 interface Message {
   id: string;
   role: 'user' | 'assistant';
   content: string;
   timestamp: Date;
+  editProposals?: EditProposal[];
+}
+
+interface EditorContext {
+  text: string;
+  fileName: string;
+  fileId: string;
+  startLine: number;
+  endLine: number;
+  startColumn: number;
+  endColumn: number;
 }
 
 interface AIChatPanelProps {
   projectId: string;
   fileId?: string;
   projectName?: string;
+  contextFromEditor?: EditorContext | null;
+  onContextUsed?: () => void;
+  onApplyEdit?: (edit: EditProposal) => Promise<void>;
 }
 
-export default function AIChatPanel({ projectId, fileId, projectName }: AIChatPanelProps) {
+export default function AIChatPanel({ projectId, fileId, projectName, contextFromEditor, onContextUsed, onApplyEdit }: AIChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [activeContext, setActiveContext] = useState<EditorContext | null>(null);
+  const [processingEditId, setProcessingEditId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  // Handle context from editor
+  useEffect(() => {
+    if (contextFromEditor) {
+      setActiveContext(contextFromEditor);
+      // Auto-focus input when context is added
+      const inputElement = document.querySelector('textarea[placeholder*="ASK AI"]') as HTMLTextAreaElement;
+      if (inputElement) {
+        inputElement.focus();
+      }
+      onContextUsed?.();
+    }
+  }, [contextFromEditor, onContextUsed]);
+
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
+
+    // Build message content with context if available
+    let messageContent = input;
+    if (activeContext) {
+      messageContent = `[Context from ${activeContext.fileName}:${activeContext.startLine}-${activeContext.endLine}]\n\`\`\`\n${activeContext.text}\n\`\`\`\n\n${input}`;
+    }
 
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
-      content: input,
+      content: input, // Display only the user's input
       timestamp: new Date()
     };
 
     setMessages(prev => [...prev, userMessage]);
-    const userInput = input;
+    const contextData = activeContext;
     setInput('');
+    setActiveContext(null); // Clear context after sending
     setIsLoading(true);
 
     try {
       const data = await api.post<any>('/api/v1/chat', {
-        message: userInput,
+        message: messageContent, // Send full message with context
         project_id: projectId,
-        file_id: fileId || null,
-        conversation_id: null // Will create new conversation
+        file_id: contextData?.fileId || fileId || null,
+        conversation_id: null, // Will create new conversation
+        context: contextData ? {
+          file_name: contextData.fileName,
+          start_line: contextData.startLine,
+          end_line: contextData.endLine,
+          selected_text: contextData.text
+        } : null
       });
       
       const aiMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: data.message?.content || 'Sorry, I could not generate a response.',
-        timestamp: new Date()
+        timestamp: new Date(),
+        editProposals: data.edit_proposals || []
       };
       
       setMessages(prev => [...prev, aiMessage]);
@@ -89,6 +147,41 @@ export default function AIChatPanel({ projectId, fileId, projectName }: AIChatPa
     if (confirm('CLEAR ALL MESSAGES?')) {
       setMessages([]);
     }
+  };
+
+  const handleAcceptEdit = async (edit: EditProposal) => {
+    if (!onApplyEdit) {
+      console.error('No onApplyEdit handler provided');
+      return;
+    }
+
+    setProcessingEditId(edit.id);
+    try {
+      await onApplyEdit(edit);
+      
+      // Update message to mark edit as accepted
+      setMessages(prev => prev.map(msg => ({
+        ...msg,
+        editProposals: msg.editProposals?.map(e => 
+          e.id === edit.id ? { ...e, status: 'accepted' } : e
+        )
+      })));
+    } catch (error) {
+      console.error('Failed to apply edit:', error);
+      alert('Failed to apply edit. Please try again.');
+    } finally {
+      setProcessingEditId(null);
+    }
+  };
+
+  const handleRejectEdit = (edit: EditProposal) => {
+    // Update message to mark edit as rejected
+    setMessages(prev => prev.map(msg => ({
+      ...msg,
+      editProposals: msg.editProposals?.map(e => 
+        e.id === edit.id ? { ...e, status: 'rejected' } : e
+      )
+    })));
   };
 
   return (
@@ -167,7 +260,7 @@ export default function AIChatPanel({ projectId, fileId, projectName }: AIChatPa
                 )}
               </div>
 
-              <div className={`flex-1 space-y-1 ${
+              <div className={`flex-1 space-y-2 ${
                 message.role === 'user' ? 'items-end' : 'items-start'
               }`}>
                 <div className={`inline-block max-w-[85%] border-4 border-[#0A0A0A] px-4 py-2 ${
@@ -179,6 +272,36 @@ export default function AIChatPanel({ projectId, fileId, projectName }: AIChatPa
                     {message.content}
                   </p>
                 </div>
+                
+                {/* Edit Proposals */}
+                {message.editProposals && message.editProposals.length > 0 && (
+                  <div className="space-y-2 w-full">
+                    {message.editProposals.map((edit) => (
+                      edit.status === 'pending' ? (
+                        <DiffViewer
+                          key={edit.id}
+                          fileName={edit.file_name}
+                          startLine={edit.start_line}
+                          endLine={edit.end_line}
+                          originalText={edit.original_text}
+                          proposedText={edit.proposed_text}
+                          reasoning={edit.reasoning}
+                          confidence={edit.confidence}
+                          onAccept={() => handleAcceptEdit(edit)}
+                          onReject={() => handleRejectEdit(edit)}
+                          isProcessing={processingEditId === edit.id}
+                        />
+                      ) : (
+                        <div key={edit.id} className="border-4 border-[#0A0A0A] bg-gray-100 p-3">
+                          <p className="font-mono text-xs text-gray-600 uppercase">
+                            EDIT {edit.status === 'accepted' ? '✓ ACCEPTED' : '✗ REJECTED'}
+                          </p>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                )}
+                
                 <span className="font-mono text-xs text-gray-500 px-2 uppercase">
                   {message.timestamp.toLocaleTimeString([], { 
                     hour: '2-digit', 
@@ -211,6 +334,30 @@ export default function AIChatPanel({ projectId, fileId, projectName }: AIChatPa
 
       {/* Input */}
       <div className="border-t-4 border-[#0A0A0A] p-4">
+        {/* Context Badge */}
+        {activeContext && (
+          <div className="mb-3 flex items-start gap-2 p-3 bg-[#39FF14]/10 border-2 border-[#39FF14]">
+            <div className="flex-1">
+              <div className="flex items-center gap-2 mb-2">
+                <FileText className="w-4 h-4 text-[#39FF14]" />
+                <span className="font-mono text-xs font-bold text-[#0A0A0A] uppercase">
+                  {activeContext.fileName}:{activeContext.startLine}-{activeContext.endLine}
+                </span>
+              </div>
+              <div className="font-mono text-xs text-gray-700 bg-white p-2 border-2 border-[#0A0A0A] max-h-24 overflow-y-auto">
+                {activeContext.text}
+              </div>
+            </div>
+            <button
+              onClick={() => setActiveContext(null)}
+              className="flex-shrink-0 p-1 text-gray-600 hover:text-[#FF073A] transition-colors"
+              title="REMOVE CONTEXT"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+        
         <div className="flex gap-2">
           <textarea
             value={input}
@@ -234,6 +381,7 @@ export default function AIChatPanel({ projectId, fileId, projectName }: AIChatPa
         </div>
         <p className="font-mono text-xs text-gray-500 mt-2 text-center uppercase">
           ENTER TO SEND • SHIFT+ENTER FOR NEW LINE
+          {activeContext && ' • CONTEXT ATTACHED'}
         </p>
       </div>
     </div>

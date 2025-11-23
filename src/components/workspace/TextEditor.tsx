@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, forwardRef, useImperativeHandle } from 'react';
 import { ProjectFile } from '@/types';
 import { FileText, Upload, Sparkles, Loader2 } from 'lucide-react';
 import { useCopilot } from '@/hooks/useCopilot';
@@ -26,9 +26,18 @@ interface TextEditorProps {
   projectId: string;
   onSave?: (content: string, filename?: string) => Promise<void>;
   onNewFile?: () => void;
+  onAddToChat?: (context: {
+    text: string;
+    fileName: string;
+    fileId: string;
+    startLine: number;
+    endLine: number;
+    startColumn: number;
+    endColumn: number;
+  }) => void;
 }
 
-export default function TextEditor({ file, projectId, onSave, onNewFile }: TextEditorProps) {
+const TextEditor = forwardRef(function TextEditor({ file, projectId, onSave, onNewFile, onAddToChat }: TextEditorProps, ref) {
   const [content, setContent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
@@ -37,6 +46,8 @@ export default function TextEditor({ file, projectId, onSave, onNewFile }: TextE
   const [suggestionText, setSuggestionText] = useState('');
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const decorationsRef = useRef<string[]>([]);
+  const suggestionTextRef = useRef<string>('');
+  const suggestionPositionRef = useRef<any>(null);
 
   const {
     getSuggestion,
@@ -86,30 +97,65 @@ export default function TextEditor({ file, projectId, onSave, onNewFile }: TextE
       scrollBeyondLastLine: false,
       wordWrap: 'on',
       wrappingIndent: 'indent',
-      padding: { top: 16, bottom: 16 }
+      padding: { top: 16, bottom: 16 },
+      contextmenu: true
     });
+
+    // Add context menu action: "Add to Chat"
+    if (onAddToChat) {
+      editor.addAction({
+        id: 'add-to-chat',
+        label: '💬 Add to Chat',
+        contextMenuGroupId: '9_cutcopypaste',
+        contextMenuOrder: 1.5,
+        run: (ed) => {
+          const selection = ed.getSelection();
+          const model = ed.getModel();
+          
+          if (selection && model && !selection.isEmpty()) {
+            const selectedText = model.getValueInRange(selection);
+            
+            onAddToChat({
+              text: selectedText,
+              fileName: file?.filename || 'Untitled',
+              fileId: file?.id || '',
+              startLine: selection.startLineNumber,
+              endLine: selection.endLineNumber,
+              startColumn: selection.startColumn,
+              endColumn: selection.endColumn
+            });
+          }
+        }
+      });
+    }
 
     // Add Ctrl+Space command for copilot
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Space, () => {
       handleCopilotTrigger();
     });
 
-    // Add Tab command for accepting suggestion
-    editor.addCommand(monaco.KeyCode.Tab, () => {
-      if (showSuggestion && suggestionText) {
-        handleAcceptSuggestion();
-        return true;
+    // Handle keyboard events for Tab and Escape
+    editor.onKeyDown((e: any) => {
+      // Tab to accept suggestion
+      if (e.keyCode === monaco.KeyCode.Tab) {
+        // Check current state via ref or DOM
+        const hasSuggestion = decorationsRef.current.length > 0;
+        if (hasSuggestion) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleAcceptSuggestion();
+        }
       }
-      return false;
-    });
-
-    // Add Escape command for rejecting suggestion
-    editor.addCommand(monaco.KeyCode.Escape, () => {
-      if (showSuggestion) {
-        handleRejectSuggestion();
-        return true;
+      
+      // Escape to reject suggestion
+      if (e.keyCode === monaco.KeyCode.Escape) {
+        const hasSuggestion = decorationsRef.current.length > 0;
+        if (hasSuggestion) {
+          e.preventDefault();
+          e.stopPropagation();
+          handleRejectSuggestion();
+        }
       }
-      return false;
     });
 
     // Listen for content changes
@@ -154,8 +200,40 @@ export default function TextEditor({ file, projectId, onSave, onNewFile }: TextE
     }
     setShowSuggestion(false);
     setSuggestionText('');
+    suggestionTextRef.current = '';
+    suggestionPositionRef.current = null;
     clearSuggestion();
   }, [clearSuggestion]);
+
+  // Expose applyEdit method to parent
+  useImperativeHandle(ref, () => ({
+    applyEdit: async (edit: any) => {
+      if (!editorRef.current) return;
+
+      const editor = editorRef.current;
+      const model = editor.getModel();
+      if (!model) return;
+
+      // Apply the edit
+      editor.executeEdits('ai-edit', [
+        {
+          range: {
+            startLineNumber: edit.start_line,
+            startColumn: 1,
+            endLineNumber: edit.end_line,
+            endColumn: model.getLineMaxColumn(edit.end_line)
+          },
+          text: edit.proposed_text
+        }
+      ]);
+
+      // Mark as changed
+      setHasChanges(true);
+      
+      // Focus editor
+      editor.focus();
+    }
+  }), []);
 
   // Handle copilot trigger and accept/reject
   const handleCopilotTrigger = useCallback(async () => {
@@ -189,6 +267,8 @@ export default function TextEditor({ file, projectId, onSave, onNewFile }: TextE
     if (suggestion) {
       console.log('Got suggestion:', suggestion);
       setSuggestionText(suggestion);
+      suggestionTextRef.current = suggestion;
+      suggestionPositionRef.current = position;
       setShowSuggestion(true);
       
       // Show inline suggestion as ghost text
@@ -216,13 +296,14 @@ export default function TextEditor({ file, projectId, onSave, onNewFile }: TextE
   }, [getSuggestion]);
 
   const handleAcceptSuggestion = useCallback(() => {
-    if (!suggestionText || !editorRef.current) return;
+    const suggestion = suggestionTextRef.current;
+    const position = suggestionPositionRef.current;
+    
+    if (!suggestion || !editorRef.current || !position) return;
 
     const editor = editorRef.current;
-    const position = editor.getPosition();
-    if (!position) return;
 
-    // Insert suggestion at cursor position
+    // Insert suggestion at the stored position
     editor.executeEdits('copilot', [
       {
         range: {
@@ -231,17 +312,19 @@ export default function TextEditor({ file, projectId, onSave, onNewFile }: TextE
           endLineNumber: position.lineNumber,
           endColumn: position.column
         },
-        text: suggestionText
+        text: suggestion
       }
     ]);
 
-    // Clear decorations
+    // Clear decorations and state
     clearInlineSuggestion();
+    suggestionTextRef.current = '';
+    suggestionPositionRef.current = null;
     acceptSuggestion();
 
     // Focus editor
     editor.focus();
-  }, [suggestionText, acceptSuggestion, clearInlineSuggestion]);
+  }, [acceptSuggestion, clearInlineSuggestion]);
 
   const handleRejectSuggestion = useCallback(() => {
     clearInlineSuggestion();
@@ -408,4 +491,6 @@ export default function TextEditor({ file, projectId, onSave, onNewFile }: TextE
       </div>
     </div>
   );
-}
+});
+
+export default TextEditor;

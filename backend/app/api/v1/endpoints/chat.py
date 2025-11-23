@@ -6,6 +6,7 @@ Handles AI chat interactions with RAG context
 
 from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional
+import logging
 from bson import ObjectId
 
 from ....services.ai_chat_service import AIChatService
@@ -17,6 +18,7 @@ from ....models.conversation import (
 from ....core.dependencies import get_current_user
 from ....models.user import User
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
@@ -31,17 +33,54 @@ async def chat(
     - Creates new conversation if conversation_id is None
     - Assembles relevant context (chunks, entities, scenes)
     - Generates response using Groq LLM
+    - Can generate edit proposals if context provided
     - Stores conversation history
     """
     chat_service = AIChatService()
     
     try:
+        # Check if this is an edit request
+        edit_proposals = []
+        has_edits = False
+        
+        if request.allow_edits and request.context:
+            from ....services.edit_proposal_service import EditProposalService
+            edit_service = EditProposalService()
+            
+            # Check if message is requesting an edit
+            if edit_service.should_generate_edit(request.message, has_context=True):
+                logger.info("Detected edit request, generating proposal...")
+                
+                proposal = await edit_service.generate_edit_proposal(
+                    message=request.message,
+                    file_name=request.context.get('file_name', 'Unknown'),
+                    file_id=request.context.get('file_id') or request.file_id or '',
+                    start_line=request.context.get('start_line', 1),
+                    end_line=request.context.get('end_line', 1),
+                    selected_text=request.context.get('selected_text', '')
+                )
+                
+                if proposal:
+                    edit_proposals.append(proposal.dict())
+                    has_edits = True
+                    logger.info(f"Generated edit proposal for {proposal.file_name}")
+        
+        # Get regular chat response
         response = await chat_service.chat(request, user_id=current_user.id)
-        return response
+        
+        # Add edit proposals to response
+        response_dict = response.dict() if hasattr(response, 'dict') else response
+        response_dict['edit_proposals'] = edit_proposals
+        response_dict['has_edits'] = has_edits
+        
+        return response_dict
     
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e))
     except Exception as e:
+        import traceback
+        logger.error(f"Chat error: {str(e)}")
+        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Chat error: {str(e)}")
 
 

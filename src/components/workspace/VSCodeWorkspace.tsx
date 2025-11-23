@@ -47,7 +47,9 @@ export default function VSCodeWorkspace({
   const [showEntitiesModal, setShowEntitiesModal] = useState(false);
   const [showRelationshipsModal, setShowRelationshipsModal] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [chatContext, setChatContext] = useState<any>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editorRef = useRef<any>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -244,9 +246,14 @@ export default function VSCodeWorkspace({
         {/* Center - Text Editor */}
         <main className="flex-1 overflow-hidden">
           <TextEditor
+            ref={editorRef}
             file={selectedFile || undefined}
             projectId={project.id}
             onSave={handleFileSave}
+            onAddToChat={(context) => {
+              setChatContext(context);
+              setShowRightSidebar(true); // Ensure chat panel is visible
+            }}
           />
         </main>
 
@@ -257,6 +264,14 @@ export default function VSCodeWorkspace({
               projectId={project.id} 
               fileId={selectedFile?.id}
               projectName={project.name}
+              contextFromEditor={chatContext}
+              onContextUsed={() => setChatContext(null)}
+              onApplyEdit={async (edit) => {
+                // Apply edit to the editor
+                if (editorRef.current) {
+                  await editorRef.current.applyEdit(edit);
+                }
+              }}
             />
           </aside>
         )}
