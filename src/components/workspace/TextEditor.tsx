@@ -82,7 +82,17 @@ const TextEditor = forwardRef(function TextEditor({ file, projectId, onSave, onN
   const handleEditorDidMount = (editor: editor.IStandaloneCodeEditor, monaco: any) => {
     editorRef.current = editor;
 
-    // Configure editor
+    // Disable code-specific diagnostics for writing app
+    monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+      noSemanticValidation: true,
+      noSyntaxValidation: true
+    });
+    monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+      noSemanticValidation: true,
+      noSyntaxValidation: true
+    });
+
+    // Configure editor for writing (not coding)
     editor.updateOptions({
       fontSize: 14,
       lineHeight: 24,
@@ -98,7 +108,15 @@ const TextEditor = forwardRef(function TextEditor({ file, projectId, onSave, onN
       wordWrap: 'on',
       wrappingIndent: 'indent',
       padding: { top: 16, bottom: 16 },
-      contextmenu: true
+      contextmenu: true,
+      // Disable command palette
+      quickSuggestions: false,
+      quickSuggestionsDelay: 10000
+    });
+
+    // Remove default command palette action (F1)
+    editor.addCommand(monaco.KeyCode.F1, () => {
+      // Do nothing - disable command palette
     });
 
     // Add context menu action: "Add to Chat"
@@ -456,7 +474,12 @@ const TextEditor = forwardRef(function TextEditor({ file, projectId, onSave, onN
             tabCompletion: 'off',
             wordBasedSuggestions: false,
             parameterHints: { enabled: false },
-            suggest: { showWords: false }
+            suggest: { showWords: false },
+            // Disable Unicode warnings for writing app
+            unicodeHighlight: {
+              ambiguousCharacters: false,
+              invisibleCharacters: false
+            }
           }}
         />
         
