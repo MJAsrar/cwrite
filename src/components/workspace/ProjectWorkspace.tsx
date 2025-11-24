@@ -124,7 +124,7 @@ export default function ProjectWorkspace({
   // Enhanced file upload handler that reads content
   const handleFileUploadWithContent = async (uploadFiles: File[]) => {
     console.log('📤 Starting file upload, files:', uploadFiles.length);
-    
+
     try {
       // Read all file contents
       console.log('📖 Reading file contents...');
@@ -144,22 +144,22 @@ export default function ProjectWorkspace({
       );
 
       const validFileContents = fileContents.filter(fc => fc !== null) as { file: File; text: string; filename: string }[];
-      
+
       if (validFileContents.length === 0) {
         console.log('⚠️ No valid files to upload');
         return;
       }
 
       console.log(`📤 Uploading ${validFileContents.length} files to backend...`);
-      
+
       // Call the original upload handler
       await onFileUpload(validFileContents.map(fc => fc.file));
-      
+
       console.log('✅ Upload successful, refreshing...');
-      
+
       // After successful upload, refresh to get the new files with IDs
       await onRefresh();
-      
+
       console.log('✅ Upload complete!');
     } catch (error) {
       console.error('❌ Upload error:', error);
@@ -189,7 +189,7 @@ export default function ProjectWorkspace({
     }
   };
 
-  const selectedFile = viewState.selectedFileId 
+  const selectedFile = viewState.selectedFileId
     ? files.find(f => f.id === viewState.selectedFileId)
     : undefined;
 
@@ -199,12 +199,13 @@ export default function ProjectWorkspace({
       sidebarView={viewState.sidebar}
       onSidebarViewChange={handleSidebarViewChange}
       sidebar={renderSidebar()}
-      rightSidebar={<AIChatPanel projectName={project.name} />}
+      rightSidebar={<AIChatPanel projectId={project.id} projectName={project.name} />}
       onRefresh={onRefresh}
     >
       {viewState.main === 'file' && selectedFile ? (
-        <TextEditor 
+        <TextEditor
           file={selectedFile}
+          projectId={project.id}
           onSave={handleFileSave}
         />
       ) : (
