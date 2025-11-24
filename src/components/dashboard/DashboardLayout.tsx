@@ -134,24 +134,33 @@ export default function DashboardLayout({ children, projectName }: DashboardLayo
 
           {/* Navigation */}
           <nav className="flex-1 px-4 py-6 space-y-2">
-            {navigation.map((item) => (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={`
-                  group flex items-center px-4 py-3 text-sm font-mono font-bold uppercase transition-all duration-100
-                  ${item.current
-                    ? 'bg-[#39FF14] text-[#0A0A0A] border-4 border-[#0A0A0A]'
-                    : 'text-[#0A0A0A] border-4 border-transparent hover:border-[#0A0A0A] hover:bg-gray-100'
-                  }
-                `}
-                onClick={() => setSidebarOpen(false)}
-                style={item.current ? { boxShadow: '4px 4px 0 0 #0A0A0A' } : {}}
-              >
-                <item.icon className="w-5 h-5 mr-3 flex-shrink-0" />
-                <span>{item.name}</span>
-              </Link>
-            ))}
+            {navigation.map((item) => {
+              const NavItem = () => (
+                <div
+                  className={`
+                    group flex items-center px-4 py-3 text-sm font-mono font-bold uppercase transition-all duration-100 cursor-pointer
+                    ${item.current
+                      ? 'bg-[#39FF14] text-[#0A0A0A] border-4 border-[#0A0A0A]'
+                      : 'text-[#0A0A0A] border-4 border-transparent hover:border-[#0A0A0A] hover:bg-gray-100'
+                    }
+                  `}
+                  style={item.current ? { boxShadow: '4px 4px 0 0 #0A0A0A' } : {}}
+                >
+                  <item.icon className="w-5 h-5 mr-3 flex-shrink-0" />
+                  <span>{item.name}</span>
+                </div>
+              );
+              
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  onClick={() => setSidebarOpen(false)}
+                >
+                  <NavItem />
+                </Link>
+              );
+            })}
           </nav>
 
           {/* User section */}
@@ -172,10 +181,8 @@ export default function DashboardLayout({ children, projectName }: DashboardLayo
             
             <button
               onClick={handleLogout}
-              className="w-full flex items-center justify-start px-4 py-3 text-sm font-mono font-bold uppercase text-[#FF073A] border-4 border-[#FF073A] hover:bg-[#FF073A] hover:text-white transition-all duration-100"
+              className="w-full flex items-center justify-start px-4 py-3 text-sm font-mono font-bold uppercase text-[#FF073A] border-4 border-[#FF073A] hover:bg-[#FF073A] hover:text-white hover:shadow-none transition-all duration-100"
               style={{ boxShadow: '4px 4px 0 0 #FF073A' }}
-              onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 0 0 0 #FF073A'}
-              onMouseLeave={(e) => e.currentTarget.style.boxShadow = '4px 4px 0 0 #FF073A'}
             >
               <LogOut className="w-4 h-4 mr-3" />
               SIGN OUT

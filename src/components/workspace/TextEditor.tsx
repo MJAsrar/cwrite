@@ -472,7 +472,7 @@ const TextEditor = forwardRef(function TextEditor({ file, projectId, onSave, onN
             suggestOnTriggerCharacters: false,
             acceptSuggestionOnEnter: 'off',
             tabCompletion: 'off',
-            wordBasedSuggestions: false,
+            wordBasedSuggestions: 'off',
             parameterHints: { enabled: false },
             suggest: { showWords: false },
             // Disable Unicode warnings for writing app

@@ -66,6 +66,7 @@ export interface ProjectFile {
   original_filename: string;
   content_type: string;
   size: number;
+  text_content?: string;
   upload_status: 'pending' | 'uploading' | 'completed' | 'error';
   processing_status: 'pending' | 'processing' | 'completed' | 'error';
   created_at: string;
@@ -108,10 +109,14 @@ export interface Relationship {
   project_id: string;
   source_entity_id: string;
   target_entity_id: string;
+  source_entity_name?: string;
+  target_entity_name?: string;
   relationship_type: 'appears_with' | 'located_in' | 'related_to';
-  strength: number;
-  co_occurrence_count: number;
-  context_snippets: string[];
+  strength?: number;
+  description?: string;
+  evidence?: string[];
+  co_occurrence_count?: number;
+  context_snippets?: string[];
   created_at: string;
   updated_at: string;
 }

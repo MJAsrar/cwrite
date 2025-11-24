@@ -2,12 +2,11 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Project, Activity, SystemStatus } from '@/types';
+import { Project } from '@/types';
 import { api } from '@/lib/api';
 import DashboardLayout from '@/components/dashboard/DashboardLayout';
 import ProjectOverviewCards from '@/components/dashboard/ProjectOverviewCards';
-import RecentActivity from '@/components/dashboard/RecentActivity';
-import SystemStatusDisplay from '@/components/dashboard/SystemStatusDisplay';
+
 import CreateProjectModal from '@/components/dashboard/CreateProjectModal';
 import { Plus, AlertCircle, FolderOpen } from 'lucide-react';
 
@@ -15,8 +14,7 @@ export default function DashboardClient() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
-  const [recentActivity, setRecentActivity] = useState<Activity[]>([]);
-  const [systemStatus, setSystemStatus] = useState<SystemStatus | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -36,23 +34,8 @@ export default function DashboardClient() {
       setLoading(true);
       setError(null);
 
-      const [projectsResponse, activityResponse, statusResponse] = await Promise.allSettled([
-        api.projects.list(),
-        api.get('/api/v1/activity/recent'),
-        api.get('/api/v1/system/status')
-      ]);
-
-      if (projectsResponse.status === 'fulfilled') {
-        setProjects(projectsResponse.value as Project[]);
-      }
-
-      if (activityResponse.status === 'fulfilled') {
-        setRecentActivity(activityResponse.value as Activity[]);
-      }
-
-      if (statusResponse.status === 'fulfilled') {
-        setSystemStatus(statusResponse.value as SystemStatus);
-      }
+      const projectsResponse = await api.projects.list();
+      setProjects(projectsResponse as Project[]);
 
     } catch (err: any) {
       console.error('Failed to load dashboard data:', err);
@@ -67,7 +50,7 @@ export default function DashboardClient() {
       const newProject = await api.projects.create(projectData);
       setProjects(prev => [newProject as Project, ...prev]);
       setShowCreateModal(false);
-      
+
       router.push(`/dashboard/projects/${(newProject as Project).id}`);
     } catch (err: any) {
       console.error('Failed to create project:', err);
@@ -151,9 +134,7 @@ export default function DashboardClient() {
         </div>
 
         {/* System Status */}
-        {systemStatus && (
-          <SystemStatusDisplay status={systemStatus} />
-        )}
+
 
         {/* Projects Section */}
         <div>
@@ -202,14 +183,7 @@ export default function DashboardClient() {
         </div>
 
         {/* Recent Activity */}
-        {recentActivity && recentActivity.length > 0 && (
-          <div>
-            <h2 className="text-3xl md:text-4xl font-black uppercase text-white mb-4">
-              RECENT ACTIVITY
-            </h2>
-            <RecentActivity activities={recentActivity} loading={loading} />
-          </div>
-        )}
+
 
         {/* Create Project Modal */}
         <CreateProjectModal

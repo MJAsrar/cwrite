@@ -70,7 +70,8 @@ function RelationshipItem({
   };
 
   const getStrengthConfig = () => {
-    if (relationship.strength >= 0.7) {
+    const strength = relationship.strength || 0;
+    if (strength >= 0.7) {
       return {
         color: 'text-green-600',
         bgColor: 'bg-green-50',
@@ -78,7 +79,7 @@ function RelationshipItem({
         label: 'Strong'
       };
     }
-    if (relationship.strength >= 0.4) {
+    if (strength >= 0.4) {
       return {
         color: 'text-yellow-600',
         bgColor: 'bg-yellow-50',
@@ -136,7 +137,7 @@ function RelationshipItem({
           ${strengthConfig.bgColor} ${strengthConfig.borderColor} ${strengthConfig.color}
         `}>
           <TrendingUp className="w-3 h-3" />
-          <span>{Math.round(relationship.strength * 100)}%</span>
+          <span>{Math.round((relationship.strength || 0) * 100)}%</span>
         </div>
       </div>
 
@@ -203,10 +204,10 @@ export default function RelationshipVisualization({
   const filteredRelationships = useMemo(() => {
     return relationships.filter(rel => {
       const matchesType = selectedTypes.includes(rel.relationship_type);
-      const matchesStrength = rel.strength >= minStrength;
+      const matchesStrength = (rel.strength || 0) >= minStrength;
       const hasValidEntities = entityMap[rel.source_entity_id] && entityMap[rel.target_entity_id];
       return matchesType && matchesStrength && hasValidEntities;
-    }).sort((a, b) => b.strength - a.strength);
+    }).sort((a, b) => (b.strength || 0) - (a.strength || 0));
   }, [relationships, selectedTypes, minStrength, entityMap]);
 
   const relationshipTypes = [
