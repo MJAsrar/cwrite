@@ -24,8 +24,7 @@ class GroqService:
         Args:
             api_key: Groq API key (defaults to GROQ_API_KEY env var)
         """
-        # Hardcoded API key (temporary)
-        self.api_key = GROQ_API_KEY
+        self.api_key = api_key or os.getenv("GROQ_API_KEY")
         if not self.api_key:
             logger.warning("GROQ_API_KEY not set. Groq service will not function.")
         

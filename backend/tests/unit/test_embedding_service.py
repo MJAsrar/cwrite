@@ -36,6 +36,9 @@ class TestEmbeddingService:
         assert result is not None
         assert isinstance(result, list)
         assert len(result) > 0
+        assert result is not None
+        assert isinstance(result, list)
+        assert len(result) > 0
         # Verify the model was called
         assert mock_model.encode.called
     
