@@ -1,11 +1,11 @@
 'use client';
 
 import { Activity } from '@/types';
-import { 
-  FileText, 
-  FolderPlus, 
-  Search, 
-  Users, 
+import {
+  FileText,
+  FolderPlus,
+  Search,
+  Users,
   Clock,
   CheckCircle,
   AlertCircle
@@ -51,26 +51,11 @@ function ActivityItem({ activity }: ActivityItemProps) {
     }
   };
 
-  const getActivityColor = () => {
-    switch (activity.type) {
-      case 'file_upload':
-        return 'bg-blue-50 border-blue-200';
-      case 'project_created':
-        return 'bg-green-50 border-green-200';
-      case 'search_performed':
-        return 'bg-purple-50 border-purple-200';
-      case 'entity_discovered':
-        return 'bg-orange-50 border-orange-200';
-      default:
-        return 'bg-secondary-50 border-secondary-200';
-    }
-  };
-
   const formatTimestamp = (timestamp: string) => {
     const date = new Date(timestamp);
     const now = new Date();
     const diffInMinutes = Math.floor((now.getTime() - date.getTime()) / (1000 * 60));
-    
+
     if (diffInMinutes < 1) {
       return 'Just now';
     } else if (diffInMinutes < 60) {
@@ -98,7 +83,7 @@ function ActivityItem({ activity }: ActivityItemProps) {
       <div className="flex-shrink-0 mt-0.5">
         {getActivityIcon()}
       </div>
-      
+
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between">
           <p className="text-sm font-medium text-foreground">
@@ -111,19 +96,19 @@ function ActivityItem({ activity }: ActivityItemProps) {
             </span>
           </div>
         </div>
-        
+
         {activity.metadata?.project_name && (
           <p className="text-xs text-muted-foreground mt-1">
             Project: {activity.metadata.project_name}
           </p>
         )}
-        
+
         {activity.metadata?.file_name && (
           <p className="text-xs text-muted-foreground mt-1">
             File: {activity.metadata.file_name}
           </p>
         )}
-        
+
         {activity.metadata?.entity_count && (
           <p className="text-xs text-muted-foreground mt-1">
             {activity.metadata.entity_count} entities discovered
@@ -143,7 +128,7 @@ export default function RecentActivity({ activities, loading = false }: RecentAc
           <div className="h-6 bg-muted rounded w-32 mb-2" />
           <div className="h-4 bg-muted rounded w-48" />
         </div>
-        
+
         <div className="p-6">
           <div className="space-y-4">
             {Array.from({ length: 5 }).map((_, index) => (
@@ -180,7 +165,7 @@ export default function RecentActivity({ activities, loading = false }: RecentAc
           Latest updates from your projects
         </p>
       </div>
-      
+
       <div className="p-6">
         <div className="space-y-3">
           {activities.slice(0, 10).map((activity, index) => (
@@ -193,7 +178,7 @@ export default function RecentActivity({ activities, loading = false }: RecentAc
             </div>
           ))}
         </div>
-        
+
         {activities.length > 10 && (
           <div className="mt-6 pt-4 border-t border-border text-center">
             <button className="text-sm text-primary hover:text-primary/80 font-medium transition-colors">
