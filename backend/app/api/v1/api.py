@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request
 
-from .endpoints import auth, files, search, relationships, indexing, projects, scenes, position, chat, copilot
+from .endpoints import auth, files, search, relationships, indexing, projects, scenes, position, chat, copilot, genres
 
 api_router = APIRouter()
 
@@ -33,6 +33,9 @@ api_router.include_router(chat.router, prefix="/chat", tags=["chat", "ai"])
 
 # Include copilot routes (inline suggestions)
 api_router.include_router(copilot.router, prefix="/copilot", tags=["copilot", "ai"])
+
+# Include genre listing routes
+api_router.include_router(genres.router, prefix="/genres", tags=["genres"])
 
 # Health check endpoint
 @api_router.get("/health")
