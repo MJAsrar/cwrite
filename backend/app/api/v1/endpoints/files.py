@@ -567,7 +567,7 @@ async def process_incremental_update(
                     update_data = {
                         'mention_count': existing.mention_count + entity.mention_count,
                         'confidence_score': (existing.confidence_score + entity.confidence_score) / 2,
-                        'last_mentioned': entity.last_mentioned
+                        'last_mentioned': entity.last_mentioned.dict() if entity.last_mentioned else None
                     }
                     updated = await entity_repo.update_by_id(existing.id, update_data)
                     saved_entities.append(updated)
@@ -700,6 +700,14 @@ async def process_uploaded_file(file_id: str, project_id: str, reprocess: bool =
             entity_repo, relationship_repo, text_chunk_repo
         )
         
+        # Step 0: Clean up old data if reprocessing
+        if reprocess:
+            logger.info(f"Cleaning up old data for file {file_id} (project {project_id})")
+            deleted_chunks = await text_chunk_repo.delete_by_file(file_id)
+            deleted_entities = await entity_repo.delete_by_project(project_id)
+            deleted_rels = await relationship_repo.delete_by_project(project_id)
+            logger.info(f"Deleted {deleted_chunks} chunks, {deleted_entities} entities, {deleted_rels} relationships")
+        
         # Step 1: Chunk the text
         logger.info(f"Chunking text for file {file_id}")
         text_chunks = await text_extraction_service.chunk_text(file_id, project_id, content)
@@ -720,7 +728,7 @@ async def process_uploaded_file(file_id: str, project_id: str, reprocess: bool =
                 update_data = {
                     'mention_count': existing.mention_count + entity.mention_count,
                     'confidence_score': (existing.confidence_score + entity.confidence_score) / 2,
-                    'last_mentioned': entity.last_mentioned
+                    'last_mentioned': entity.last_mentioned.dict() if entity.last_mentioned else None
                 }
                 updated = await entity_repo.update_by_id(existing.id, update_data)
                 saved_entities.append(updated)
