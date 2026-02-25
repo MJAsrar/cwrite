@@ -127,7 +127,6 @@ backend/chroma_db/
 docker-compose.override.yml
 
 # AI/ML models
-models/
 *.pkl
 *.joblib
 
