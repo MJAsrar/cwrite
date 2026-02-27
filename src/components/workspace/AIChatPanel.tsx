@@ -1,13 +1,21 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { 
-  Send, 
-  Sparkles, 
-  User, 
+import {
+  Send,
+  Sparkles,
+  User,
   Bot,
   Trash2,
-  FileText
+  FileText,
+  X,
+  Loader2,
+  ChevronRight,
+  History,
+  MessageSquare,
+  BrainCircuit,
+  Lightbulb,
+  Wand2
 } from 'lucide-react';
 import { api } from '@/lib/api';
 import DiffViewer from './DiffViewer';
@@ -50,232 +58,204 @@ interface AIChatPanelProps {
   contextFromEditor?: EditorContext | null;
   onContextUsed?: () => void;
   onApplyEdit?: (edit: EditProposal) => Promise<void>;
+  onClose?: () => void;
+  theme?: 'sepia' | 'dark' | 'light';
 }
 
-export default function AIChatPanel({ projectId, fileId, projectName, contextFromEditor, onContextUsed, onApplyEdit }: AIChatPanelProps) {
+const GENRE_LABELS: Record<string, string> = {
+  fantasy: '🧙 Fantasy',
+  sci_fi: '🚀 Sci-Fi',
+  romance: '❤️ Romance',
+  thriller: '🔎 Thriller',
+  horror: '👻 Horror',
+  literary: '✍️ Literary',
+  historical: '🏰 Historical',
+  young_adult: '🧑‍🎓 YA',
+  poetry: '🪶 Poetry',
+  screenwriting: '🎬 Screen',
+  general: '🌍 General',
+};
+
+const PROMPT_CHIPS = [
+  { icon: <History className="w-4 h-4" />, label: 'Suggest a backstory' },
+  { icon: <Sparkles className="w-4 h-4" />, label: 'Develop this scene' },
+  { icon: <MessageSquare className="w-4 h-4" />, label: 'Improve dialogue' },
+  { icon: <BrainCircuit className="w-4 h-4" />, label: 'Check plot holes' },
+];
+
+export default function AIChatPanel({
+  projectId, fileId, projectName, contextFromEditor, onContextUsed, onApplyEdit, onClose, theme = 'sepia'
+}: AIChatPanelProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [activeContext, setActiveContext] = useState<EditorContext | null>(null);
   const [processingEditId, setProcessingEditId] = useState<string | null>(null);
+  const [projectGenre, setProjectGenre] = useState<string>('general');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const isDark = theme === 'dark';
+  const cardBg = isDark ? 'bg-zinc-800/50 border-zinc-700' : 'bg-white border-stone-200 shadow-sm';
+  const chipBg = isDark ? 'bg-zinc-700/50 hover:bg-zinc-700' : 'bg-stone-100/50 hover:bg-stone-100 border border-transparent hover:border-indigo-200';
+
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    const fetchGenre = async () => {
+      try {
+        const p = await api.projects.get(projectId) as any;
+        if (p?.settings?.genre) setProjectGenre(p.settings.genre);
+      } catch { }
+    };
+    if (projectId) fetchGenre();
+  }, [projectId]);
 
-  // Handle context from editor
   useEffect(() => {
     if (contextFromEditor) {
       setActiveContext(contextFromEditor);
-      // Auto-focus input when context is added
-      const inputElement = document.querySelector('textarea[placeholder*="ASK AI"]') as HTMLTextAreaElement;
-      if (inputElement) {
-        inputElement.focus();
-      }
+      inputRef.current?.focus();
       onContextUsed?.();
     }
   }, [contextFromEditor, onContextUsed]);
 
-  const handleSend = async () => {
-    if (!input.trim() || isLoading) return;
+  const handleSend = async (overrideMessage?: string) => {
+    const text = overrideMessage || input;
+    if (!text.trim() || isLoading) return;
 
-    // Build message content with context if available
-    let messageContent = input;
+    let messageContent = text;
     if (activeContext) {
-      messageContent = `[Context from ${activeContext.fileName}:${activeContext.startLine}-${activeContext.endLine}]\n\`\`\`\n${activeContext.text}\n\`\`\`\n\n${input}`;
+      messageContent = `[Context from ${activeContext.fileName}:${activeContext.startLine}-${activeContext.endLine}]\n\`\`\`\n${activeContext.text}\n\`\`\`\n\n${text}`;
     }
 
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      role: 'user',
-      content: input, // Display only the user's input
-      timestamp: new Date()
-    };
-
+    const userMessage: Message = { id: Date.now().toString(), role: 'user', content: text, timestamp: new Date() };
     setMessages(prev => [...prev, userMessage]);
-    const contextData = activeContext;
+    const ctx = activeContext;
     setInput('');
-    setActiveContext(null); // Clear context after sending
+    setActiveContext(null);
     setIsLoading(true);
 
     try {
       const data = await api.post<any>('/api/v1/chat', {
-        message: messageContent, // Send full message with context
+        message: messageContent,
         project_id: projectId,
-        file_id: contextData?.fileId || fileId || null,
-        conversation_id: null, // Will create new conversation
-        context: contextData ? {
-          file_name: contextData.fileName,
-          start_line: contextData.startLine,
-          end_line: contextData.endLine,
-          selected_text: contextData.text
-        } : null
+        file_id: ctx?.fileId || fileId || null,
+        conversation_id: null,
+        context: ctx ? { file_name: ctx.fileName, start_line: ctx.startLine, end_line: ctx.endLine, selected_text: ctx.text } : null
       });
-      
-      const aiMessage: Message = {
+
+      setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: data.message?.content || 'Sorry, I could not generate a response.',
         timestamp: new Date(),
         editProposals: data.edit_proposals || []
-      };
-      
-      setMessages(prev => [...prev, aiMessage]);
-    } catch (error) {
-      console.error('Chat error:', error);
-      const errorMessage: Message = {
+      }]);
+    } catch {
+      setMessages(prev => [...prev, {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: 'Sorry, I encountered an error. Please try again.',
         timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSend();
-    }
-  };
-
-  const handleClearChat = () => {
-    if (confirm('CLEAR ALL MESSAGES?')) {
-      setMessages([]);
-    }
+      }]);
+    } finally { setIsLoading(false); }
   };
 
   const handleAcceptEdit = async (edit: EditProposal) => {
-    if (!onApplyEdit) {
-      console.error('No onApplyEdit handler provided');
-      return;
-    }
-
+    if (!onApplyEdit) return;
     setProcessingEditId(edit.id);
     try {
       await onApplyEdit(edit);
-      
-      // Update message to mark edit as accepted
       setMessages(prev => prev.map(msg => ({
-        ...msg,
-        editProposals: msg.editProposals?.map(e => 
-          e.id === edit.id ? { ...e, status: 'accepted' } : e
-        )
+        ...msg, editProposals: msg.editProposals?.map(e => e.id === edit.id ? { ...e, status: 'accepted' } : e)
       })));
-    } catch (error) {
-      console.error('Failed to apply edit:', error);
-      alert('Failed to apply edit. Please try again.');
-    } finally {
-      setProcessingEditId(null);
-    }
+    } catch { alert('Failed to apply edit.'); }
+    finally { setProcessingEditId(null); }
   };
 
   const handleRejectEdit = (edit: EditProposal) => {
-    // Update message to mark edit as rejected
     setMessages(prev => prev.map(msg => ({
-      ...msg,
-      editProposals: msg.editProposals?.map(e => 
-        e.id === edit.id ? { ...e, status: 'rejected' } : e
-      )
+      ...msg, editProposals: msg.editProposals?.map(e => e.id === edit.id ? { ...e, status: 'rejected' } : e)
     })));
   };
 
   return (
-    <div className="h-full flex flex-col">
-      {/* Header */}
-      <div className="border-b-4 border-[#0A0A0A] p-4">
-        <div className="flex items-center justify-between mb-3">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-[#FF073A] border-4 border-[#0A0A0A] flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <h3 className="font-black text-sm uppercase text-[#0A0A0A]">AI ASSISTANT</h3>
-              <p className="font-mono text-xs text-gray-600 uppercase">COWRITE AI</p>
-            </div>
+    <div className="p-5 flex flex-col h-full overflow-hidden">
+      {/* Header — The Muse */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center space-x-2">
+          <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isDark ? 'bg-indigo-900/40 text-indigo-400' : 'bg-indigo-100 text-indigo-600'}`}>
+            <Sparkles size={18} />
           </div>
-          <button
-            onClick={handleClearChat}
-            disabled={messages.length === 0}
-            className="p-2 text-[#FF073A] hover:bg-[#FF073A]/10 transition-colors disabled:opacity-50"
-            title="CLEAR CHAT"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+          <h3 className="font-bold text-lg">The Muse</h3>
         </div>
-        
-        <div className="flex items-center gap-2 font-mono text-xs">
-          <div className="flex items-center gap-2 px-2 py-1 border-2 border-[#39FF14] bg-[#39FF14]/10 text-[#39FF14] uppercase">
-            <div className="w-2 h-2 bg-[#39FF14] animate-pulse" />
-            <span className="font-bold">ONLINE</span>
-          </div>
+        <div className="flex items-center gap-2">
+          {projectGenre && projectGenre !== 'general' && (
+            <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${isDark ? 'bg-zinc-700 text-zinc-300' : 'bg-stone-100 text-stone-600'}`}>
+              {GENRE_LABELS[projectGenre] || projectGenre}
+            </span>
+          )}
+          {onClose && (
+            <button onClick={onClose} className="opacity-40 hover:opacity-100 transition-opacity">
+              <ChevronRight size={20} />
+            </button>
+          )}
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+      {/* Messages or Empty State */}
+      <div className="flex-1 overflow-y-auto space-y-3 pr-1 custom-scrollbar">
         {messages.length === 0 ? (
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center max-w-sm px-6">
-              <div className="w-16 h-16 mx-auto mb-4 border-4 border-[#39FF14] bg-[#39FF14]/10 flex items-center justify-center">
-                <Sparkles className="w-8 h-8 text-[#39FF14]" />
-              </div>
-              <h4 className="text-lg font-black uppercase text-[#0A0A0A] mb-2">
-                AI WRITING PARTNER
-              </h4>
-              <p className="font-mono text-xs text-gray-600 mb-4 uppercase">
-                GET HELP WITH CHARACTERS, PLOT, AND MORE
+          <>
+            {/* Welcome card with prompt chips */}
+            <div className={`p-4 rounded-2xl border ${cardBg}`}>
+              <p className={`text-sm mb-4 italic ${isDark ? 'opacity-60' : 'opacity-70'}`}>
+                "Select some text or ask me anything to help develop your scene."
               </p>
-              <div className="space-y-2 font-mono text-xs text-gray-600 text-left border-4 border-[#0A0A0A] p-3 bg-gray-50">
-                <p className="font-bold text-[#0A0A0A] uppercase">TRY ASKING:</p>
-                <ul className="space-y-1">
-                  <li>• "SUGGEST A BACKSTORY"</li>
-                  <li>• "HELP DEVELOP THIS SCENE"</li>
-                  <li>• "WHAT COULD HAPPEN NEXT?"</li>
-                </ul>
+              <div className="grid grid-cols-1 gap-2">
+                {PROMPT_CHIPS.map((chip, idx) => (
+                  <button
+                    key={idx}
+                    onClick={() => handleSend(chip.label)}
+                    className={`flex items-center space-x-3 p-3 text-left rounded-xl text-sm font-medium transition-all transform hover:scale-[1.02] active:scale-95 ${chipBg}`}
+                  >
+                    <span className="text-indigo-500">{chip.icon}</span>
+                    <span>{chip.label}</span>
+                  </button>
+                ))}
               </div>
             </div>
-          </div>
+
+            {/* Insight card */}
+            <div className={`p-4 rounded-2xl border ${isDark ? 'bg-indigo-900/20 border-indigo-500/20' : 'bg-indigo-50 border-indigo-100'}`}>
+              <div className="flex items-center space-x-2 text-indigo-600 mb-2">
+                <Lightbulb size={16} />
+                <span className="text-xs font-bold uppercase tracking-wider">Insight</span>
+              </div>
+              <p className="text-sm leading-relaxed">
+                Try selecting a paragraph and right-clicking to "Send to The Muse" for targeted feedback on your writing.
+              </p>
+            </div>
+          </>
         ) : (
           messages.map((message) => (
-            <div
-              key={message.id}
-              className={`flex gap-3 ${
-                message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
-              }`}
-            >
-              <div className={`flex-shrink-0 w-8 h-8 border-4 border-[#0A0A0A] flex items-center justify-center ${
-                message.role === 'user'
-                  ? 'bg-[#39FF14]'
-                  : 'bg-[#FF073A]'
-              }`}>
-                {message.role === 'user' ? (
-                  <User className="w-4 h-4 text-[#0A0A0A]" />
-                ) : (
-                  <Bot className="w-4 h-4 text-white" />
-                )}
-              </div>
-
-              <div className={`flex-1 space-y-2 ${
-                message.role === 'user' ? 'items-end' : 'items-start'
-              }`}>
-                <div className={`inline-block max-w-[85%] border-4 border-[#0A0A0A] px-4 py-2 ${
-                  message.role === 'user'
-                    ? 'bg-[#39FF14] ml-auto'
-                    : 'bg-white'
+            <div key={message.id} className={`flex gap-2.5 ${message.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}>
+              <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${message.role === 'user'
+                  ? 'bg-indigo-600 text-white'
+                  : isDark ? 'bg-zinc-700 text-zinc-300' : 'bg-stone-100 text-stone-600'
                 }`}>
-                  <p className="font-mono text-xs text-[#0A0A0A] whitespace-pre-wrap break-words">
-                    {message.content}
-                  </p>
+                {message.role === 'user' ? <User className="w-3.5 h-3.5" /> : <Sparkles className="w-3.5 h-3.5" />}
+              </div>
+              <div className="flex-1 space-y-1.5">
+                <div className={`inline-block max-w-[90%] rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed ${message.role === 'user'
+                    ? 'bg-indigo-600 text-white ml-auto float-right'
+                    : isDark ? 'bg-zinc-800 text-zinc-200' : 'bg-white border border-stone-200 text-stone-800 shadow-sm'
+                  }`}>
+                  <p className="whitespace-pre-wrap break-words">{message.content}</p>
                 </div>
-                
-                {/* Edit Proposals */}
+
                 {message.editProposals && message.editProposals.length > 0 && (
-                  <div className="space-y-2 w-full">
+                  <div className="space-y-2 w-full clear-both">
                     {message.editProposals.map((edit) => (
                       edit.status === 'pending' ? (
                         <DiffViewer
@@ -292,21 +272,16 @@ export default function AIChatPanel({ projectId, fileId, projectName, contextFro
                           isProcessing={processingEditId === edit.id}
                         />
                       ) : (
-                        <div key={edit.id} className="border-4 border-[#0A0A0A] bg-gray-100 p-3">
-                          <p className="font-mono text-xs text-gray-600 uppercase">
-                            EDIT {edit.status === 'accepted' ? '✓ ACCEPTED' : '✗ REJECTED'}
-                          </p>
+                        <div key={edit.id} className={`rounded-lg p-2 text-xs ${isDark ? 'bg-zinc-800 text-zinc-400' : 'bg-stone-50 text-stone-500 border border-stone-200'}`}>
+                          Edit {edit.status === 'accepted' ? '✓ accepted' : '✗ rejected'}
                         </div>
                       )
                     ))}
                   </div>
                 )}
-                
-                <span className="font-mono text-xs text-gray-500 px-2 uppercase">
-                  {message.timestamp.toLocaleTimeString([], { 
-                    hour: '2-digit', 
-                    minute: '2-digit' 
-                  })}
+
+                <span className={`text-[10px] px-1 clear-both block ${isDark ? 'text-zinc-600' : 'text-stone-400'}`}>
+                  {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
             </div>
@@ -314,16 +289,14 @@ export default function AIChatPanel({ projectId, fileId, projectName, contextFro
         )}
 
         {isLoading && (
-          <div className="flex gap-3">
-            <div className="flex-shrink-0 w-8 h-8 border-4 border-[#0A0A0A] bg-[#FF073A] flex items-center justify-center">
-              <Bot className="w-4 h-4 text-white" />
+          <div className="flex gap-2.5">
+            <div className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center ${isDark ? 'bg-zinc-700' : 'bg-stone-100'}`}>
+              <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
             </div>
-            <div className="flex-1">
-              <div className="inline-block border-4 border-[#0A0A0A] bg-white px-4 py-3">
-                <div className="flex items-center gap-2">
-                  <div className="w-4 h-4 border-2 border-t-[#39FF14] border-r-transparent border-b-transparent border-l-transparent animate-spin" />
-                  <span className="font-mono text-xs text-gray-600 uppercase">THINKING...</span>
-                </div>
+            <div className={`rounded-2xl px-3.5 py-2.5 ${isDark ? 'bg-zinc-800' : 'bg-white border border-stone-200 shadow-sm'}`}>
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+                <span className="text-sm opacity-60">The Muse is thinking…</span>
               </div>
             </div>
           </div>
@@ -332,57 +305,47 @@ export default function AIChatPanel({ projectId, fileId, projectName, contextFro
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
-      <div className="border-t-4 border-[#0A0A0A] p-4">
-        {/* Context Badge */}
-        {activeContext && (
-          <div className="mb-3 flex items-start gap-2 p-3 bg-[#39FF14]/10 border-2 border-[#39FF14]">
-            <div className="flex-1">
-              <div className="flex items-center gap-2 mb-2">
-                <FileText className="w-4 h-4 text-[#39FF14]" />
-                <span className="font-mono text-xs font-bold text-[#0A0A0A] uppercase">
-                  {activeContext.fileName}:{activeContext.startLine}-{activeContext.endLine}
-                </span>
-              </div>
-              <div className="font-mono text-xs text-gray-700 bg-white p-2 border-2 border-[#0A0A0A] max-h-24 overflow-y-auto">
-                {activeContext.text}
-              </div>
+      {/* Context badge */}
+      {activeContext && (
+        <div className={`mt-3 mb-2 flex items-start gap-2 p-2.5 rounded-xl border ${isDark ? 'bg-blue-900/20 border-blue-500/20' : 'bg-blue-50 border-blue-200'}`}>
+          <div className="flex-1">
+            <div className="flex items-center gap-1.5 mb-1">
+              <FileText className="w-3 h-3 text-blue-500" />
+              <span className="text-[10px] font-semibold text-blue-600">
+                {activeContext.fileName}:{activeContext.startLine}-{activeContext.endLine}
+              </span>
             </div>
-            <button
-              onClick={() => setActiveContext(null)}
-              className="flex-shrink-0 p-1 text-gray-600 hover:text-[#FF073A] transition-colors"
-              title="REMOVE CONTEXT"
-            >
-              ✕
-            </button>
+            <div className={`text-xs p-1.5 rounded max-h-14 overflow-y-auto ${isDark ? 'bg-zinc-900 text-zinc-300 border border-zinc-700' : 'bg-white text-stone-600 border border-stone-200'}`}>
+              {activeContext.text}
+            </div>
           </div>
-        )}
-        
-        <div className="flex gap-2">
-          <textarea
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="ASK AI FOR HELP..."
-            rows={1}
-            className="flex-1 px-4 py-3 border-4 border-[#0A0A0A] bg-white resize-none focus:outline-none focus:border-[#39FF14] font-mono text-xs text-[#0A0A0A] placeholder:text-gray-400 uppercase"
-            style={{ minHeight: '42px', maxHeight: '120px' }}
-          />
-          <button
-            onClick={handleSend}
-            disabled={!input.trim() || isLoading}
-            className="flex-shrink-0 w-12 h-12 border-4 border-[#39FF14] bg-transparent text-[#39FF14] hover:bg-[#39FF14] hover:text-[#0A0A0A] transition-all duration-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-            style={{ boxShadow: '4px 4px 0 0 #39FF14' }}
-            onMouseEnter={(e) => !input.trim() || (e.currentTarget.style.boxShadow = '0 0 0 0 #39FF14')}
-            onMouseLeave={(e) => !input.trim() || (e.currentTarget.style.boxShadow = '4px 4px 0 0 #39FF14')}
-          >
-            <Send className="w-5 h-5" />
+          <button onClick={() => setActiveContext(null)} className="opacity-40 hover:opacity-100">
+            <X className="w-3 h-3" />
           </button>
         </div>
-        <p className="font-mono text-xs text-gray-500 mt-2 text-center uppercase">
-          ENTER TO SEND • SHIFT+ENTER FOR NEW LINE
-          {activeContext && ' • CONTEXT ATTACHED'}
-        </p>
+      )}
+
+      {/* Input */}
+      <div className="mt-3 relative">
+        <input
+          ref={inputRef}
+          type="text"
+          placeholder="Ask the Muse..."
+          className={`w-full pl-4 pr-12 py-4 rounded-2xl text-sm border focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all ${isDark
+              ? 'bg-zinc-800 border-zinc-700 text-white placeholder:text-zinc-500'
+              : 'bg-white border-stone-200 shadow-xl shadow-indigo-500/5 placeholder:text-stone-400'
+            }`}
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+        />
+        <button
+          onClick={() => handleSend()}
+          disabled={!input.trim() || isLoading}
+          className="absolute right-3 top-1/2 -translate-y-1/2 p-2 bg-indigo-600 text-white rounded-xl shadow-lg shadow-indigo-500/40 hover:bg-indigo-700 transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+        >
+          <Send size={16} />
+        </button>
       </div>
     </div>
   );

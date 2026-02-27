@@ -4,7 +4,7 @@ AI Chat Service
 Orchestrates AI conversations with RAG context:
 - Manages conversation flow
 - Assembles context via RAG
-- Generates responses via Groq LLM
+- Routes to genre-specific HuggingFace models or Groq LLM
 - Stores conversation history
 """
 
@@ -13,9 +13,11 @@ from typing import Dict, List, Optional, Any
 from datetime import datetime
 
 from .groq_service import GroqService
+from .huggingface_service import HuggingFaceService, GENRE_SYSTEM_PROMPTS
 from .rag_context_service import RAGContextService
 from ..repositories.conversation_repository import ConversationRepository
 from ..repositories.message_repository import MessageRepository
+from ..repositories.project_repository import ProjectRepository
 from ..models.conversation import (
     Conversation, Message, MessageRole,
     ConversationCreate, ChatRequest, ChatResponse, MessageResponse
@@ -49,15 +51,19 @@ Always base your answers on the context provided. Be helpful, insightful, and su
     def __init__(
         self,
         groq_service: Optional[GroqService] = None,
+        hf_service: Optional[HuggingFaceService] = None,
         rag_service: Optional[RAGContextService] = None,
         conversation_repo: Optional[ConversationRepository] = None,
-        message_repo: Optional[MessageRepository] = None
+        message_repo: Optional[MessageRepository] = None,
+        project_repo: Optional[ProjectRepository] = None
     ):
         """Initialize AI chat service"""
         self.groq = groq_service or GroqService()
+        self.hf = hf_service or HuggingFaceService()
         self.rag = rag_service or RAGContextService()
         self.conversation_repo = conversation_repo or ConversationRepository()
         self.message_repo = message_repo or MessageRepository()
+        self.project_repo = project_repo or ProjectRepository()
     
     async def chat(
         self,
@@ -95,7 +101,17 @@ Always base your answers on the context provided. Be helpful, insightful, and su
                 content=request.message
             )
             
-            # 3. Assemble RAG context (now includes project overview fallback)
+            # 3. Look up the project genre for model routing
+            genre = "general"
+            model_used = "llama-3.3-70b-versatile"
+            try:
+                project = await self.project_repo.get_by_id(request.project_id)
+                if project and project.settings and project.settings.genre:
+                    genre = project.settings.genre.value if hasattr(project.settings.genre, 'value') else str(project.settings.genre)
+            except Exception as e:
+                logger.warning(f"Could not fetch project genre: {e}, defaulting to general")
+            
+            # 4. Assemble RAG context
             context = await self.rag.assemble_context(
                 query=request.message,
                 project_id=request.project_id,
@@ -106,26 +122,27 @@ Always base your answers on the context provided. Be helpful, insightful, and su
                 include_relationships=request.include_relationships
             )
             
-            # 4. Format context for LLM
+            # 5. Format context for LLM
             formatted_context = self.rag.format_context_for_llm(context)
             
-            # 5. Build conversation history
+            # 6. Build conversation history
             recent_messages = await self.message_repo.get_latest_messages(
                 conversation.id,
-                count=10  # Include last 10 messages for context
+                count=10
             )
             
-            # 6. Prepare messages for LLM
-            llm_messages = [{"role": "system", "content": self.SYSTEM_PROMPT}]
+            # 7. Use genre-specific system prompt
+            system_prompt = GENRE_SYSTEM_PROMPTS.get(genre, self.SYSTEM_PROMPT)
             
-            # Add conversation history (excluding the current user message)
-            for msg in recent_messages[:-1]:  # Exclude the message we just added
+            # 8. Prepare messages for LLM
+            llm_messages = [{"role": "system", "content": system_prompt}]
+            
+            for msg in recent_messages[:-1]:
                 llm_messages.append({
                     "role": msg.role.value,
                     "content": msg.content
                 })
             
-            # Add current user message with context
             user_prompt = f"""{formatted_context}
 
 User Question: {request.message}
@@ -137,29 +154,50 @@ Please provide a helpful, specific answer based on the context above."""
                 "content": user_prompt
             })
             
-            # 7. Generate response from Groq
-            assistant_content = await self.groq.continue_conversation(
-                messages=llm_messages,
-                temperature=conversation.temperature
-            )
+            # 9. Try HuggingFace genre-specific model first, fall back to Groq
+            assistant_content = None
             
-            # 8. Store assistant message
+            if genre != "general" and self.hf.api_token:
+                try:
+                    logger.info(f"Using HuggingFace model for genre '{genre}'")
+                    hf_response = await self.hf.chat_completion(
+                        messages=llm_messages,
+                        genre=genre,
+                        temperature=conversation.temperature,
+                        max_tokens=2000
+                    )
+                    assistant_content = hf_response["choices"][0]["message"]["content"]
+                    model_used = self.hf.get_model_for_genre(genre)
+                    logger.info(f"HuggingFace response received from {model_used}")
+                except Exception as e:
+                    logger.warning(f"HuggingFace failed for genre '{genre}': {e}, falling back to Groq")
+                    assistant_content = None
+            
+            # Fallback to Groq
+            if assistant_content is None:
+                assistant_content = await self.groq.continue_conversation(
+                    messages=llm_messages,
+                    temperature=conversation.temperature
+                )
+                model_used = "llama-3.3-70b-versatile"
+            
+            # 10. Store assistant message
             assistant_message = await self._store_message(
                 conversation_id=conversation.id,
                 role=MessageRole.ASSISTANT,
                 content=assistant_content,
                 context_used=context,
-                model=conversation.model
+                model=model_used
             )
             
-            # 9. Update conversation
+            # 11. Update conversation
             await self.conversation_repo.increment_message_count(conversation.id)
             
-            # 10. Auto-generate title if this is the first exchange
+            # 12. Auto-generate title if this is the first exchange
             if conversation.message_count == 0:
                 await self._generate_conversation_title(conversation.id, request.message)
             
-            # 11. Build response
+            # 13. Build response
             return ChatResponse(
                 conversation_id=conversation.id,
                 message=MessageResponse(
@@ -167,7 +205,7 @@ Please provide a helpful, specific answer based on the context above."""
                     conversation_id=assistant_message.conversation_id,
                     role=assistant_message.role.value,
                     content=assistant_message.content,
-                    context_used=None,  # Don't send full context to frontend
+                    context_used=None,
                     tokens=assistant_message.tokens,
                     model=assistant_message.model,
                     created_at=assistant_message.created_at
@@ -175,7 +213,9 @@ Please provide a helpful, specific answer based on the context above."""
                 context_summary={
                     'chunks_used': len(context.get('chunks', [])),
                     'entities_mentioned': len(context.get('entities', [])),
-                    'scenes_referenced': len(context.get('scenes', []))
+                    'scenes_referenced': len(context.get('scenes', [])),
+                    'genre': genre,
+                    'model_used': model_used
                 }
             )
         

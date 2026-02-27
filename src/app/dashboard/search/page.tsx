@@ -7,7 +7,7 @@ import SearchInterface from '@/components/search/SearchInterface';
 import { Project } from '@/types';
 import { api } from '@/lib/api';
 import { useSearchNavigation } from '@/hooks/useSearchNavigation';
-import { Search, AlertCircle, RefreshCw } from 'lucide-react';
+import { Search, AlertCircle, RefreshCcw } from 'lucide-react';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +15,7 @@ function SearchPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { restoreSearchState } = useSearchNavigation();
-  
+
   const [mounted, setMounted] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
@@ -34,17 +34,17 @@ function SearchPageContent() {
     try {
       setLoading(true);
       setError(null);
-      
+
       const projectsData = await api.projects.list();
       setProjects(Array.isArray(projectsData) ? projectsData : []);
-      
+
       const restored = restoreSearchState();
       if (restored) {
         setRestoredState(restored);
       }
     } catch (err: any) {
       console.error('Failed to load projects:', err);
-      setError(err.message || 'FAILED TO LOAD PROJECTS');
+      setError(err.message || 'Failed to load projects');
     } finally {
       setLoading(false);
     }
@@ -59,24 +59,25 @@ function SearchPageContent() {
   if (!mounted || loading) {
     return (
       <DashboardLayout>
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-5xl md:text-6xl font-black uppercase mb-2 text-white">
-              SEARCH
-            </h1>
-            <p className="font-mono text-sm text-gray-400 uppercase">
-              SEMANTIC SEARCH / NATURAL LANGUAGE QUERIES
-            </p>
-          </div>
-
-          <div className="border-4 border-white bg-white p-8">
-            <div className="flex flex-col items-center justify-center space-y-4">
-              <div className="w-16 h-16 border-4 border-[#39FF14] flex items-center justify-center">
-                <div className="w-8 h-8 border-4 border-t-[#39FF14] border-r-transparent border-b-transparent border-l-transparent animate-spin"></div>
+        <div className="p-6 sm:p-8">
+          <div className="max-w-6xl mx-auto">
+            <div className="mb-8">
+              <h1
+                className="text-3xl font-bold tracking-tight mb-1.5 text-stone-900"
+                style={{ fontFamily: 'var(--font-playfair), Georgia, serif', letterSpacing: '-0.02em' }}
+              >
+                Semantic Search
+              </h1>
+              <p className="text-sm text-stone-500">Search across all your projects using natural language</p>
+            </div>
+            <div className="flex items-center justify-center h-48">
+              <div className="flex flex-col items-center gap-3">
+                <div
+                  className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
+                  style={{ borderColor: '#D97706', borderTopColor: 'transparent' }}
+                />
+                <p className="text-sm font-medium text-stone-500">Loading search interface…</p>
               </div>
-              <p className="font-mono text-sm text-[#0A0A0A] uppercase font-bold">
-                LOADING SEARCH INTERFACE...
-              </p>
             </div>
           </div>
         </div>
@@ -87,34 +88,26 @@ function SearchPageContent() {
   if (error) {
     return (
       <DashboardLayout>
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-5xl md:text-6xl font-black uppercase mb-2 text-white">
-              SEARCH
-            </h1>
-            <p className="font-mono text-sm text-gray-400 uppercase">
-              SEMANTIC SEARCH / NATURAL LANGUAGE QUERIES
-            </p>
-          </div>
-
-          <div className="border-4 border-[#FF073A] bg-white p-8">
-            <div className="text-center">
-              <AlertCircle className="w-16 h-16 text-[#FF073A] mx-auto mb-4" />
-              <h3 className="text-2xl font-black uppercase text-[#0A0A0A] mb-2">
-                ERROR
-              </h3>
-              <p className="font-mono text-sm text-gray-600 mb-6 uppercase">
-                {error}
-              </p>
+        <div className="p-6 sm:p-8">
+          <div className="max-w-6xl mx-auto">
+            <div className="mb-8">
+              <h1
+                className="text-3xl font-bold tracking-tight mb-1.5 text-stone-900"
+                style={{ fontFamily: 'var(--font-playfair), Georgia, serif', letterSpacing: '-0.02em' }}
+              >
+                Semantic Search
+              </h1>
+              <p className="text-sm text-stone-500">Search across all your projects using natural language</p>
+            </div>
+            <div className="rounded-2xl p-8 text-center max-w-lg mx-auto bg-red-50 border border-red-200">
+              <AlertCircle className="w-12 h-12 mx-auto mb-4 text-red-500" />
+              <h3 className="text-xl font-bold mb-2 text-red-900">Unable to Load</h3>
+              <p className="text-sm mb-6 max-w-sm mx-auto text-red-700">{error}</p>
               <button
                 onClick={loadProjects}
-                className="border-4 border-[#FF073A] bg-transparent text-[#FF073A] font-mono px-6 py-3 text-sm uppercase font-bold hover:bg-[#FF073A] hover:text-white transition-all duration-100 inline-flex items-center gap-2"
-                style={{ boxShadow: '6px 6px 0 0 #FF073A' }}
-                onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 0 0 0 #FF073A'}
-                onMouseLeave={(e) => e.currentTarget.style.boxShadow = '6px 6px 0 0 #FF073A'}
+                className="inline-flex items-center justify-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl border transition-all bg-white text-red-700 border-red-200 hover:bg-red-50"
               >
-                <RefreshCw className="w-4 h-4" />
-                RETRY
+                <RefreshCcw className="w-4 h-4" /> Try Again
               </button>
             </div>
           </div>
@@ -125,69 +118,73 @@ function SearchPageContent() {
 
   return (
     <DashboardLayout>
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-5xl md:text-6xl font-black uppercase mb-2 text-white">
-            SEARCH
-          </h1>
-          <p className="font-mono text-sm text-gray-400 uppercase">
-            {projects.length} PROJECTS / {projects.reduce((sum, p) => sum + (p.file_count || 0), 0)} FILES / {projects.reduce((sum, p) => sum + (p.entity_count || 0), 0)} ENTITIES
-          </p>
-        </div>
-
-        {/* Search Interface */}
-        <div className="space-y-6">
-          <SearchInterface
-            projects={projects}
-            projectId={initialProjectId}
-            initialQuery={initialQuery}
-            restoredState={restoredState}
-            highlightResultId={highlightResultId || undefined}
-          />
-
-          {/* Search Tips */}
-          <div className="border-4 border-[#39FF14] bg-[#39FF14]/10 p-6">
-            <h3 className="font-mono text-xs uppercase font-bold text-[#39FF14] mb-4">
-              SEARCH TIPS:
-            </h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-mono text-xs text-gray-300">
-              <div>
-                <span className="text-[#39FF14]">→</span> USE NATURAL LANGUAGE QUERIES
-              </div>
-              <div>
-                <span className="text-[#39FF14]">→</span> SEARCH BY CHARACTER / LOCATION / THEME
-              </div>
-              <div>
-                <span className="text-[#39FF14]">→</span> FILTER BY PROJECT OR DATE
-              </div>
-              <div>
-                <span className="text-[#39FF14]">→</span> SEMANTIC SIMILARITY MATCHING
-              </div>
-            </div>
+      <div className="p-6 sm:p-8">
+        <div className="max-w-6xl mx-auto">
+          {/* Header */}
+          <div className="mb-8 pb-6 border-b border-stone-200">
+            <h1
+              className="text-3xl font-bold tracking-tight mb-1.5 text-stone-900"
+              style={{ fontFamily: 'var(--font-playfair), Georgia, serif', letterSpacing: '-0.02em' }}
+            >
+              Semantic Search
+            </h1>
+            <p className="text-sm text-stone-500">
+              {projects.length} projects · {projects.reduce((sum, p) => sum + (p.file_count || 0), 0)} files · {projects.reduce((sum, p) => sum + (p.entity_count || 0), 0)} entities
+            </p>
           </div>
 
-          {/* Empty State */}
-          {projects.length === 0 && (
-            <div className="border-4 border-white bg-white p-8 text-center">
-              <Search className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-2xl font-black uppercase text-[#0A0A0A] mb-2">
-                NO PROJECTS
+          {/* Search Interface */}
+          <div className="space-y-6">
+            <SearchInterface
+              projects={projects}
+              projectId={initialProjectId}
+              initialQuery={initialQuery}
+              restoredState={restoredState}
+              highlightResultId={highlightResultId || undefined}
+            />
+
+            {/* Search Tips */}
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-6">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-amber-800 mb-4">
+                Search Tips
               </h3>
-              <p className="font-mono text-sm text-gray-600 mb-6 uppercase">
-                CREATE A PROJECT TO START SEARCHING
-              </p>
-              <button
-                onClick={() => router.push('/dashboard')}
-                className="border-4 border-[#39FF14] bg-transparent text-[#39FF14] font-mono px-6 py-3 text-sm uppercase font-bold hover:bg-[#39FF14] hover:text-[#0A0A0A] transition-all duration-100"
-                style={{ boxShadow: '6px 6px 0 0 #39FF14' }}
-                onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 0 0 0 #39FF14'}
-                onMouseLeave={(e) => e.currentTarget.style.boxShadow = '6px 6px 0 0 #39FF14'}
-              >
-                GO TO DASHBOARD →
-              </button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm text-stone-600">
+                <div className="flex items-start gap-2">
+                  <span className="text-amber-600 mt-0.5">→</span>
+                  <span>Use natural language queries</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-amber-600 mt-0.5">→</span>
+                  <span>Search by character, location, or theme</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-amber-600 mt-0.5">→</span>
+                  <span>Filter by project or date</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="text-amber-600 mt-0.5">→</span>
+                  <span>Semantic similarity matching</span>
+                </div>
+              </div>
             </div>
-          )}
+
+            {/* Empty State */}
+            {projects.length === 0 && (
+              <div className="rounded-2xl p-10 text-center border-2 border-dashed border-stone-200">
+                <Search className="w-12 h-12 text-stone-300 mx-auto mb-4" />
+                <h3 className="text-xl font-semibold mb-2 text-stone-900">No Projects</h3>
+                <p className="text-sm text-stone-500 mb-6">
+                  Create a project to start searching
+                </p>
+                <button
+                  onClick={() => router.push('/dashboard')}
+                  className="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-semibold rounded-xl text-white transition-all bg-amber-900 hover:bg-amber-950"
+                >
+                  Go to Dashboard →
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </DashboardLayout>
@@ -197,9 +194,13 @@ function SearchPageContent() {
 export default function SearchPage() {
   return (
     <Suspense fallback={
-      <div className="flex items-center justify-center min-h-screen bg-[#0A0A0A]">
-        <div className="border-4 border-[#39FF14] p-8">
-          <p className="font-mono text-[#39FF14] uppercase">LOADING...</p>
+      <div className="flex items-center justify-center min-h-screen bg-[#FCFAF7]">
+        <div className="flex flex-col items-center gap-3">
+          <div
+            className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin"
+            style={{ borderColor: '#D97706', borderTopColor: 'transparent' }}
+          />
+          <p className="text-sm font-medium text-stone-500">Loading…</p>
         </div>
       </div>
     }>

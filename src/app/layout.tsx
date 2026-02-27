@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from 'next';
 import { GeistSans } from 'geist/font/sans';
 import { GeistMono } from 'geist/font/mono';
-import { Playfair_Display } from 'next/font/google';
+import { Playfair_Display, Plus_Jakarta_Sans, Crimson_Pro, Inter } from 'next/font/google';
 import './globals.css';
 import ErrorBoundary from '@/components/ui/ErrorBoundary';
 import { ThemeProvider } from '@/contexts/ThemeContext';
@@ -12,6 +12,28 @@ const playfair = Playfair_Display({
     subsets: ['latin'],
     variable: '--font-playfair',
     display: 'swap',
+});
+
+const jakarta = Plus_Jakarta_Sans({
+    subsets: ['latin'],
+    variable: '--font-jakarta',
+    display: 'swap',
+    weight: ['300', '400', '500', '600', '700', '800'],
+});
+
+const crimsonPro = Crimson_Pro({
+    subsets: ['latin'],
+    variable: '--font-crimson',
+    display: 'swap',
+    weight: ['400', '600'],
+    style: ['normal', 'italic'],
+});
+
+const inter = Inter({
+    subsets: ['latin'],
+    variable: '--font-inter',
+    display: 'swap',
+    weight: ['400', '500', '600', '700'],
 });
 
 export const metadata: Metadata = {
@@ -49,7 +71,7 @@ export default function RootLayout({
                     }}
                 />
             </head>
-            <body className={`${GeistSans.variable} ${GeistMono.variable} ${playfair.variable} antialiased`}>
+            <body className={`${GeistSans.variable} ${GeistMono.variable} ${playfair.variable} ${jakarta.variable} ${crimsonPro.variable} ${inter.variable} antialiased`}>
                 <SkipLink href="#main-content">Skip to main content</SkipLink>
                 <ThemeProvider defaultTheme="system" storageKey="cowrite-theme">
                     <AccessibilityProvider>

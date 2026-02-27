@@ -16,10 +16,10 @@ class ApiClient {
     maxDelay: 10000,
     retryCondition: (error: AxiosError) => {
       // Retry on network errors, timeouts, and 5xx server errors
-      return !error.response || 
-             error.code === 'NETWORK_ERROR' ||
-             error.code === 'ECONNABORTED' ||
-             (error.response.status >= 500 && error.response.status < 600);
+      return !error.response ||
+        error.code === 'NETWORK_ERROR' ||
+        error.code === 'ECONNABORTED' ||
+        (error.response.status >= 500 && error.response.status < 600);
     }
   };
 
@@ -56,7 +56,7 @@ class ApiClient {
           // Don't auto-redirect here, let the component handle it
           // This prevents infinite redirect loops
         }
-        
+
         return Promise.reject(this.handleError(error));
       }
     );
@@ -104,7 +104,7 @@ class ApiClient {
         return await operation();
       } catch (error) {
         lastError = error as AxiosError;
-        
+
         // Don't retry on the last attempt or if retry condition is not met
         if (attempt === config.maxRetries || !config.retryCondition!(lastError)) {
           throw lastError;
@@ -127,7 +127,7 @@ class ApiClient {
 
   private handleError(error: AxiosError): ApiError {
     const errorCategory = this.categorizeError(error);
-    
+
     // If we have a response with error data, use it
     if (error.response?.data && typeof error.response.data === 'object') {
       const errorData = error.response.data as any;
@@ -141,7 +141,7 @@ class ApiClient {
         status: error.response.status
       };
     }
-    
+
     // Create appropriate error message based on category
     let message = 'An unexpected error occurred';
     let errorCode = 'unknown_error';
@@ -168,7 +168,7 @@ class ApiClient {
         message = error.message || message;
         errorCode = 'unknown_error';
     }
-    
+
     return {
       error: errorCode,
       message,
@@ -243,18 +243,18 @@ export const apiClient = new ApiClient();
 // Convenience methods
 export const api = {
   // Generic methods with enhanced retry support
-  get: <T>(url: string, params?: any, retryConfig?: Partial<RetryConfig>) => 
+  get: <T>(url: string, params?: any, retryConfig?: Partial<RetryConfig>) =>
     apiClient.get<T>(url, params, retryConfig),
-  post: <T>(url: string, data?: any, retryConfig?: Partial<RetryConfig>) => 
+  post: <T>(url: string, data?: any, retryConfig?: Partial<RetryConfig>) =>
     apiClient.post<T>(url, data, retryConfig),
-  put: <T>(url: string, data?: any, retryConfig?: Partial<RetryConfig>) => 
+  put: <T>(url: string, data?: any, retryConfig?: Partial<RetryConfig>) =>
     apiClient.put<T>(url, data, retryConfig),
-  delete: <T>(url: string, retryConfig?: Partial<RetryConfig>) => 
+  delete: <T>(url: string, retryConfig?: Partial<RetryConfig>) =>
     apiClient.delete<T>(url, retryConfig),
-  
+
   // Health check with aggressive retry
   health: () => apiClient.get('/api/v1/health', undefined, { maxRetries: 5 }),
-  
+
   // Auth endpoints with appropriate retry configs
   auth: {
     register: (data: any) => apiClient.post('/api/v1/auth/register', data, { maxRetries: 1 }),
@@ -263,7 +263,7 @@ export const api = {
     refresh: () => apiClient.post('/api/v1/auth/refresh', undefined, { maxRetries: 2 }),
     resetPassword: (email: string) => apiClient.post('/api/v1/auth/reset-password', { email }, { maxRetries: 1 }),
   },
-  
+
   // Project endpoints with enhanced retry support
   projects: {
     list: () => apiClient.get('/api/v1/projects', undefined, { maxRetries: 3 }),
@@ -272,7 +272,7 @@ export const api = {
     update: (id: string, data: any) => apiClient.put(`/api/v1/projects/${id}`, data, { maxRetries: 2 }),
     delete: (id: string) => apiClient.delete(`/api/v1/projects/${id}`, { maxRetries: 1 }),
   },
-  
+
   // File endpoints with appropriate retry configs
   files: {
     upload: (projectId: string, file: File, onProgress?: (progress: number) => void) => {
@@ -285,17 +285,22 @@ export const api = {
     get: (fileId: string) => apiClient.get(`/api/v1/files/${fileId}`, undefined, { maxRetries: 3 }),
     delete: (fileId: string) => apiClient.delete(`/api/v1/files/${fileId}`, { maxRetries: 1 }),
   },
-  
+
   // Search endpoints with enhanced retry support
   search: {
     query: (data: any) => apiClient.post('/api/v1/search', data, { maxRetries: 2 }),
     suggestions: (query: string) => apiClient.get('/api/v1/search/suggestions', { q: query }, { maxRetries: 2 }),
   },
-  
+
   // Entity endpoints with enhanced retry support
   entities: {
     list: (projectId: string, params?: any) => apiClient.get(`/api/v1/projects/${projectId}/entities`, params, { maxRetries: 3 }),
     get: (entityId: string) => apiClient.get(`/api/v1/entities/${entityId}`, undefined, { maxRetries: 3 }),
     relationships: (entityId: string) => apiClient.get(`/api/v1/entities/${entityId}/relationships`, undefined, { maxRetries: 3 }),
+  },
+
+  // Genre endpoints
+  genres: {
+    list: () => apiClient.get('/api/v1/genres', undefined, { maxRetries: 3 }),
   },
 };

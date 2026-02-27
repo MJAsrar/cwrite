@@ -7,6 +7,7 @@ from text content using spaCy NLP pipeline.
 
 import spacy
 import re
+import json
 from typing import List, Dict, Set, Tuple, Optional
 from collections import Counter, defaultdict
 import logging
@@ -112,8 +113,15 @@ class EntityExtractionService:
             locations = await self._extract_locations(doc, text, file_id, project_id)
             themes = await self._extract_themes(doc, text, file_id, project_id)
             
-            # Combine all entities and filter by confidence
-            all_entities = characters + locations + themes
+            # LLM verification: verify characters and locations with Groq
+            entities_to_verify = characters + locations
+            if entities_to_verify:
+                verified_entities = await self._verify_entities_with_llm(entities_to_verify)
+            else:
+                verified_entities = []
+            
+            # Combine verified entities with themes (themes skip LLM verification)
+            all_entities = verified_entities + themes
             filtered_entities = [
                 entity for entity in all_entities 
                 if entity.confidence_score >= confidence_threshold
@@ -367,6 +375,127 @@ class EntityExtractionService:
                 entity_list.append(entity)
         
         return entity_list
+    
+    async def _verify_entities_with_llm(self, entities: List[Entity], batch_size: int = 15) -> List[Entity]:
+        """
+        Verify extracted entities using Groq LLM.
+        
+        Sends entity names with their context sentences to Groq for verification.
+        - VALID: entity is definitely a real character/location → keep
+        - UNSURE: LLM is not sure → keep (benefit of the doubt)
+        - INVALID: entity is definitely NOT a character/location → remove
+        
+        Falls back gracefully if Groq is unavailable (keeps all entities).
+        """
+        if not entities:
+            return entities
+        
+        try:
+            from ..services.groq_service import GroqService
+            groq = GroqService()
+            
+            if not groq.api_key:
+                logger.warning("Groq API key not available, skipping LLM verification")
+                return entities
+            
+            verified_entities = []
+            
+            # Process in batches
+            for i in range(0, len(entities), batch_size):
+                batch = entities[i:i + batch_size]
+                
+                # Build the verification prompt
+                entity_lines = []
+                for idx, entity in enumerate(batch):
+                    entity_type = entity.type.value if hasattr(entity.type, 'value') else str(entity.type)
+                    
+                    # Get context from first mention
+                    context = ""
+                    if entity.first_mentioned and entity.first_mentioned.context:
+                        context = entity.first_mentioned.context[:200]
+                    
+                    entity_lines.append(
+                        f'{idx + 1}. Name: "{entity.name}", Type: {entity_type.upper()}\n'
+                        f'   Context: "{context}"\n'
+                        f'   Mentions: {entity.mention_count}'
+                    )
+                
+                entities_text = "\n".join(entity_lines)
+                
+                system_prompt = (
+                    "You are verifying named entities extracted from a novel or story. "
+                    "For each entity, decide if it is genuinely a character name or location "
+                    "based on the context sentence provided.\n\n"
+                    "Rules:\n"
+                    "- VALID: The name is clearly a character name or a real/fictional location\n"
+                    "- UNSURE: You cannot tell for certain, but it might be valid\n"
+                    "- INVALID: This is clearly NOT a character name or location "
+                    "(e.g. a common word, a verb, a sentence fragment, a body part, an object)\n\n"
+                    "Return ONLY a JSON array, no other text. Example:\n"
+                    '[{"name": "Sarah", "verdict": "VALID"}, {"name": "Looked", "verdict": "INVALID"}]'
+                )
+                
+                user_prompt = f"Verify these extracted entities:\n\n{entities_text}"
+                
+                try:
+                    response = await groq.generate_response(
+                        prompt=user_prompt,
+                        system_prompt=system_prompt,
+                        temperature=0.1,
+                        max_tokens=1000
+                    )
+                    
+                    # Parse JSON response
+                    # Strip markdown code fences if present
+                    cleaned = response.strip()
+                    if cleaned.startswith('```'):
+                        cleaned = cleaned.split('\n', 1)[-1]  # Remove first line
+                        if cleaned.endswith('```'):
+                            cleaned = cleaned[:-3]
+                        cleaned = cleaned.strip()
+                    
+                    verdicts = json.loads(cleaned)
+                    
+                    # Build a name → verdict lookup
+                    verdict_map = {}
+                    for v in verdicts:
+                        if isinstance(v, dict) and 'name' in v and 'verdict' in v:
+                            verdict_map[v['name'].lower()] = v['verdict'].upper()
+                    
+                    # Filter entities based on verdicts
+                    for entity in batch:
+                        verdict = verdict_map.get(entity.name.lower(), 'UNSURE')
+                        
+                        if verdict == 'INVALID':
+                            logger.info(f"LLM rejected entity: '{entity.name}' (type: {entity.type})")
+                        else:
+                            # VALID or UNSURE → keep the entity
+                            if verdict == 'VALID':
+                                # Boost confidence slightly for LLM-validated entities
+                                entity.confidence_score = min(entity.confidence_score + 0.05, 1.0)
+                            verified_entities.append(entity)
+                    
+                    logger.info(
+                        f"LLM verification batch {i // batch_size + 1}: "
+                        f"{len(batch)} entities → {len([e for e in batch if verdict_map.get(e.name.lower(), 'UNSURE') != 'INVALID'])} kept"
+                    )
+                    
+                except json.JSONDecodeError as e:
+                    logger.warning(f"Failed to parse LLM verification response: {e}. Keeping all entities in batch.")
+                    verified_entities.extend(batch)
+                except Exception as e:
+                    logger.warning(f"LLM verification failed for batch: {e}. Keeping all entities.")
+                    verified_entities.extend(batch)
+            
+            logger.info(f"LLM verification complete: {len(entities)} → {len(verified_entities)} entities")
+            return verified_entities
+            
+        except ImportError:
+            logger.warning("GroqService not available, skipping LLM verification")
+            return entities
+        except Exception as e:
+            logger.warning(f"LLM verification failed entirely: {e}. Keeping all entities.")
+            return entities
     
     def _is_valid_character_name(self, name: str) -> bool:
         """Check if a name is a valid character name"""

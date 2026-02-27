@@ -1,220 +1,213 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
-import { ArrowRight, Brain, Search, Zap } from 'lucide-react';
+import { ArrowRight, FileText, Share2, Shield, Zap, Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import Link from 'next/link';
 
 export default function HomePage() {
   const router = useRouter();
-  const heroRef = useRef<HTMLDivElement>(null);
-  const layer1Ref = useRef<HTMLHeadingElement>(null);
-  const layer2Ref = useRef<HTMLHeadingElement>(null);
-  const layer3Ref = useRef<HTMLHeadingElement>(null);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      if (!heroRef.current) return;
-      
-      const scrolled = window.scrollY;
-      const heroHeight = heroRef.current.offsetHeight;
-      
-      // Parallax effect - different speeds for each layer
-      if (layer1Ref.current) {
-        layer1Ref.current.style.transform = `translate(-50%, calc(-50% - ${scrolled * 0.1}px))`;
-      }
-      if (layer2Ref.current) {
-        layer2Ref.current.style.transform = `translate(-50%, calc(-50% - ${scrolled * 0.3}px))`;
-      }
-      if (layer3Ref.current) {
-        layer3Ref.current.style.transform = `translate(-50%, calc(-50% - ${scrolled * 0.5}px))`;
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   return (
-    <div className="bg-[#0A0A0A] text-gray-200">
-      {/* Fixed Header */}
-      <div className="fixed top-8 left-8 text-xl font-mono text-[#39FF14] border-2 border-[#39FF14] px-3 py-1 z-50 backdrop-blur-sm">
-        COWRITE.IA
-      </div>
-      <div className="fixed top-8 right-8 text-xl font-mono text-[#FF073A] z-50">
-        ITERATION 2.0
-      </div>
-
-      {/* Scroll Indicator */}
-      <div className="fixed bottom-8 left-1/2 -translate-x-1/2 text-gray-400 font-mono text-sm z-50 animate-bounce">
-        SCROLL TO EXPLORE ⬇
-      </div>
-
-      {/* Hero Section - Pseudo 3D Parallax */}
-      <section 
-        ref={heroRef}
-        className="relative min-h-screen flex items-center justify-center overflow-hidden"
-        style={{ perspective: '1500px' }}
-      >
-        {/* Background layers for depth */}
-        <div className="absolute inset-0 bg-gradient-to-b from-[#0A0A0A] via-[#0A0A0A] to-[#1a1a1a]" />
-        
-        {/* Layer 1 - Furthest back */}
-        <h1 
-          ref={layer1Ref}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[clamp(60px,12vw,180px)] font-black leading-[0.9] tracking-tighter uppercase opacity-10 text-gray-700 pointer-events-none"
-          style={{ willChange: 'transform' }}
-        >
-          CREATIVE
-        </h1>
-
-        {/* Layer 2 - Middle */}
-       
-
-        {/* Layer 3 - Front with neon glow */}
-        <h1 
-          ref={layer3Ref}
-          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[clamp(80px,15vw,220px)] font-black leading-[0.9] tracking-tighter uppercase text-white pointer-events-none text-center"
-          style={{ 
-            willChange: 'transform',
-            textShadow: '0 0 7px #39FF14, 0 0 15px #39FF14, 0 0 30px #39FF14, 0 0 60px rgba(57, 255, 20, 0.6)'
-          }}
-        >
-          COWRITE<span className="text-[#39FF14]">.</span>AI
-        </h1>
-
-        {/* Subtitle */}
-        <div className="absolute bottom-32 left-1/2 -translate-x-1/2 text-center">
-          <p className="font-mono text-sm md:text-base text-gray-400 mb-8">
-            AI-POWERED MANUSCRIPT INDEXING / SEMANTIC SEARCH / ENTITY EXTRACTION
-          </p>
-          <div className="flex gap-4 justify-center">
+    <div className="min-h-screen bg-background text-foreground font-sans">
+      {/* Navbar */}
+      <nav className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container mx-auto px-4 md:px-6 h-16 flex items-center justify-between">
+          <div className="flex items-center gap-2 font-bold text-xl text-primary">
+            <div className="bg-primary text-white p-1 rounded">
+              <FileText size={20} />
+            </div>
+            <span>CoWrite.ai</span>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link
+              href="/auth/login"
+              className="text-sm font-medium hover:text-primary transition-colors"
+            >
+              Sign in
+            </Link>
             <button
               onClick={() => router.push('/auth/register')}
-              className="border-4 border-[#39FF14] bg-transparent text-[#39FF14] font-mono px-6 py-3 cursor-pointer transition-all duration-100 hover:bg-[#39FF14] hover:text-[#0A0A0A] hover:translate-x-1.5 hover:translate-y-1.5"
-              style={{ boxShadow: '6px 6px 0 0 #39FF14' }}
-              onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 0 0 0 #39FF14'}
-              onMouseLeave={(e) => e.currentTarget.style.boxShadow = '6px 6px 0 0 #39FF14'}
+              className="bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md text-sm font-medium transition-colors shadow-sm"
             >
-              START FREE →
+              Get Started
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      {/* Hero Section */}
+      <section className="relative pt-20 pb-32 overflow-hidden bg-dot-pattern">
+        <div className="container mx-auto px-4 md:px-6 flex flex-col items-center text-center">
+          <div className="inline-flex items-center rounded-full border border-border bg-background px-3 py-1 text-sm text-muted-foreground mb-8 animate-fade-in-up">
+            <span className="flex h-2 w-2 rounded-full bg-primary mr-2"></span>
+            Reimagining the writing workflow
+          </div>
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight mb-6 max-w-4xl text-foreground animate-fade-in-up delay-100">
+            Write better, <span className="text-primary">faster</span>, and with more clarity.
+          </h1>
+          <p className="text-xl text-muted-foreground max-w-2xl mb-10 animate-fade-in-up delay-200">
+            The professional AI-powered writing assistant that understands your manuscripts, tracks entities, and enhances your creative flow.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-4 mb-16 animate-fade-in-up delay-300">
+            <button
+              onClick={() => router.push('/auth/register')}
+              className="bg-primary text-white hover:bg-primary/90 px-8 py-4 rounded-lg text-lg font-medium transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 flex items-center justify-center gap-2"
+            >
+              Start Writing for Free <ArrowRight size={20} />
             </button>
             <button
-              onClick={() => router.push('/auth/login')}
-              className="border-4 border-gray-500 bg-transparent text-gray-300 font-mono px-6 py-3 cursor-pointer transition-all duration-100 hover:bg-gray-500 hover:text-[#0A0A0A] hover:translate-x-1.5 hover:translate-y-1.5"
-              style={{ boxShadow: '6px 6px 0 0 #6B7280' }}
-              onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 0 0 0 #6B7280'}
-              onMouseLeave={(e) => e.currentTarget.style.boxShadow = '6px 6px 0 0 #6B7280'}
+              onClick={() => {
+                const element = document.getElementById('features');
+                if (element) element.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="bg-white border border-border hover:bg-gray-50 text-foreground px-8 py-4 rounded-lg text-lg font-medium transition-all shadow-sm hover:shadow-md flex items-center justify-center"
             >
-              LOGIN
+              See How It Works
             </button>
+          </div>
+
+          {/* Hero Visual Placeholder */}
+          <div className="w-full max-w-5xl rounded-xl shadow-2xl border border-gray-200 overflow-hidden animate-fade-in-up delay-400">
+            <div className="bg-gray-50 border-b border-gray-200 p-4 flex items-center gap-2">
+              <div className="flex gap-2">
+                <div className="w-3 h-3 rounded-full bg-red-400"></div>
+                <div className="w-3 h-3 rounded-full bg-yellow-400"></div>
+                <div className="w-3 h-3 rounded-full bg-green-400"></div>
+              </div>
+              <div className="mx-auto bg-white px-4 py-1 rounded-md text-xs text-gray-400 font-mono border border-gray-200">
+                cowrite-project-untitled.docx
+              </div>
+            </div>
+            <div className="bg-white p-0 aspect-[16/9] relative bg-grid-pattern">
+              <div className="absolute inset-0 flex items-center justify-center text-gray-300 font-medium">
+                <Image src="/hero-placeholder.svg" alt="App Interface Preview" width={800} height={450} className="w-full h-full object-cover opacity-80" />
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* Features Section - Brutalist Cards */}
-      <section className="min-h-screen bg-white text-[#0A0A0A] p-10 md:p-20 relative z-10">
-        <h2 className="text-6xl md:text-8xl font-black mb-12 border-b-8 border-[#0A0A0A] pb-4 uppercase">
-          /FEATURES
-        </h2>
-
-        <div className="grid md:grid-cols-3 gap-8 mb-16">
-          {/* Feature 1 */}
-          <div className="border-2 border-[#0A0A0A] p-8 transition-all duration-300 hover:border-[#39FF14] hover:shadow-[0_0_20px_rgba(57,255,20,0.3)] bg-white">
-            <div className="w-16 h-16 border-4 border-[#39FF14] flex items-center justify-center mb-6">
-              <Brain className="w-8 h-8 text-[#39FF14]" />
-            </div>
-            <h3 className="text-3xl font-black mb-4 uppercase">AI EXTRACTION</h3>
-            <p className="font-mono text-sm mb-6 leading-relaxed">
-              Automatically extract characters, locations, and themes from your manuscripts using advanced NLP.
+      {/* Features Grid */}
+      <section id="features" className="py-24 bg-secondary/30">
+        <div className="container mx-auto px-4 md:px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-3xl md:text-4xl font-bold mb-4">Powerful features for serious writers</h2>
+            <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+              Everything you need to organize complex narratives and research.
             </p>
-            <div className="flex flex-wrap gap-2">
-              <span className="text-xs font-mono border-2 border-[#0A0A0A] px-2 py-1">SPACY</span>
-              <span className="text-xs font-mono border-2 border-[#0A0A0A] px-2 py-1">NLP</span>
-              <span className="text-xs font-mono border-2 border-[#0A0A0A] px-2 py-1">ENTITIES</span>
-            </div>
           </div>
 
-          {/* Feature 2 */}
-          <div className="border-2 border-[#0A0A0A] p-8 transition-all duration-300 hover:border-[#FF073A] hover:shadow-[0_0_20px_rgba(255,7,58,0.3)] bg-white">
-            <div className="w-16 h-16 border-4 border-[#FF073A] flex items-center justify-center mb-6">
-              <Search className="w-8 h-8 text-[#FF073A]" />
+          <div className="grid md:grid-cols-3 gap-8">
+            {/* Feature 1 */}
+            <div className="bg-background p-8 rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow">
+              <div className="w-12 h-12 bg-blue-100 text-primary rounded-lg flex items-center justify-center mb-6">
+                <Search size={24} />
+              </div>
+              <h3 className="text-xl font-bold mb-3">Semantic Search</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                Don't just search for keywords. Ask questions about your story world and get answers based on meaning and context.
+              </p>
             </div>
-            <h3 className="text-3xl font-black mb-4 uppercase">SEMANTIC SEARCH</h3>
-            <p className="font-mono text-sm mb-6 leading-relaxed">
-              Find content by meaning, not just keywords. Natural language queries across your entire project.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <span className="text-xs font-mono border-2 border-[#0A0A0A] px-2 py-1">VECTORS</span>
-              <span className="text-xs font-mono border-2 border-[#0A0A0A] px-2 py-1">EMBEDDINGS</span>
-              <span className="text-xs font-mono border-2 border-[#0A0A0A] px-2 py-1">CHROMADB</span>
-            </div>
-          </div>
 
-          {/* Feature 3 */}
-          <div className="border-2 border-[#0A0A0A] p-8 transition-all duration-300 hover:border-[#39FF14] hover:shadow-[0_0_20px_rgba(57,255,20,0.3)] bg-white">
-            <div className="w-16 h-16 border-4 border-[#39FF14] flex items-center justify-center mb-6">
-              <Zap className="w-8 h-8 text-[#39FF14]" />
+            {/* Feature 2 */}
+            <div className="bg-background p-8 rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow">
+              <div className="w-12 h-12 bg-green-100 text-green-600 rounded-lg flex items-center justify-center mb-6">
+                <Zap size={24} />
+              </div>
+              <h3 className="text-xl font-bold mb-3">Instant Entity Extraction</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                Automatically identify and catalog characters, locations, and organizations as you write or upload documents.
+              </p>
             </div>
-            <h3 className="text-3xl font-black mb-4 uppercase">FAST INDEXING</h3>
-            <p className="font-mono text-sm mb-6 leading-relaxed">
-              Upload manuscripts in multiple formats. Instant processing and indexing for immediate search.
-            </p>
-            <div className="flex flex-wrap gap-2">
-              <span className="text-xs font-mono border-2 border-[#0A0A0A] px-2 py-1">DOCX</span>
-              <span className="text-xs font-mono border-2 border-[#0A0A0A] px-2 py-1">TXT</span>
-              <span className="text-xs font-mono border-2 border-[#0A0A0A] px-2 py-1">MD</span>
+
+            {/* Feature 3 */}
+            <div className="bg-background p-8 rounded-xl border border-border shadow-sm hover:shadow-md transition-shadow">
+              <div className="w-12 h-12 bg-purple-100 text-purple-600 rounded-lg flex items-center justify-center mb-6">
+                <Shield size={24} />
+              </div>
+              <h3 className="text-xl font-bold mb-3">Secure & Private</h3>
+              <p className="text-muted-foreground leading-relaxed">
+                Your manuscripts are your intellectual property. We use industry-standard encryption to keep your work safe.
+              </p>
             </div>
           </div>
         </div>
+      </section>
 
-        {/* Quote */}
-        <div className="mt-16 pt-8 border-t-8 border-[#0A0A0A]">
-          <p className="font-mono text-sm md:text-base">
-            "Built for novelists, screenwriters, and content creators who need to manage complex story worlds."
+      {/* Social Proof / Trust */}
+      <section className="py-20 border-t border-border">
+        <div className="container mx-auto px-4 md:px-6 text-center">
+          <p className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-8">
+            Trusted by modern storytellers
           </p>
+          <div className="flex flex-wrap justify-center gap-8 md:gap-16 opacity-60 grayscale items-center">
+            {/* Simple text logos for professional feel */}
+            <span className="text-xl font-bold font-serif">Independent</span>
+            <span className="text-xl font-bold font-serif">SCRIBE</span>
+            <span className="text-xl font-bold font-serif">Novelty.</span>
+            <span className="text-xl font-bold font-serif">Archived</span>
+          </div>
         </div>
       </section>
 
       {/* CTA Section */}
-      <section className="min-h-[60vh] bg-[#0A0A0A] flex items-center justify-center p-10">
-        <div className="text-center max-w-4xl">
-          <h2 className="text-5xl md:text-7xl font-black mb-8 uppercase" style={{
-            textShadow: '0 0 7px #FF073A, 0 0 15px #FF073A, 0 0 30px #FF073A'
-          }}>
-            START WRITING SMARTER
-          </h2>
-          <p className="font-mono text-gray-400 mb-12 text-lg">
-            NO CREDIT CARD / FREE 14-DAY TRIAL / CANCEL ANYTIME
+      <section className="py-24 bg-primary text-white">
+        <div className="container mx-auto px-4 md:px-6 text-center">
+          <h2 className="text-3xl md:text-5xl font-bold mb-6">Ready to upgrade your writing process?</h2>
+          <p className="text-xl text-white/80 max-w-2xl mx-auto mb-10">
+            Join thousands of writers who are using CoWrite to manage their masterpieces.
           </p>
           <button
             onClick={() => router.push('/auth/register')}
-            className="border-4 border-[#FF073A] bg-transparent text-[#FF073A] font-mono px-10 py-4 text-xl cursor-pointer transition-all duration-100 hover:bg-[#FF073A] hover:text-[#0A0A0A] hover:translate-x-1.5 hover:translate-y-1.5"
-            style={{ boxShadow: '8px 8px 0 0 #FF073A' }}
-            onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 0 0 0 #FF073A'}
-            onMouseLeave={(e) => e.currentTarget.style.boxShadow = '8px 8px 0 0 #FF073A'}
+            className="bg-white text-primary hover:bg-gray-100 px-8 py-4 rounded-lg text-lg font-bold transition-all shadow-lg hover:shadow-xl hover:-translate-y-1"
           >
-            GET STARTED NOW →
+            Get Started for Free
           </button>
+          <p className="mt-4 text-sm text-white/60">
+            No credit card required. Free 14-day trial.
+          </p>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="bg-white text-[#0A0A0A] p-10 border-t-8 border-[#0A0A0A]">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-          <div className="font-mono text-sm">
-            © 2025 COWRITE.IA — ALL RIGHTS RESERVED
+      <footer className="bg-gray-50 border-t border-gray-200 py-12 text-sm">
+        <div className="container mx-auto px-4 md:px-6 grid grid-cols-2 md:grid-cols-4 gap-8">
+          <div>
+            <div className="flex items-center gap-2 font-bold text-lg text-gray-900 mb-4">
+              <FileText size={20} />
+              <span>CoWrite.ai</span>
+            </div>
+            <p className="text-gray-500">
+              The intelligent writing workspace for the modern era.
+            </p>
           </div>
-          <div className="flex gap-6 font-mono text-sm">
-            <Link href="/auth/login" className="hover:text-[#39FF14] transition-colors">
-              LOGIN
-            </Link>
-            <Link href="/auth/register" className="hover:text-[#39FF14] transition-colors">
-              REGISTER
-            </Link>
-            <Link href="/dashboard" className="hover:text-[#FF073A] transition-colors">
-              DASHBOARD
-            </Link>
+          <div>
+            <h4 className="font-bold text-gray-900 mb-4">Product</h4>
+            <ul className="space-y-2 text-gray-600">
+              <li><Link href="#" className="hover:text-primary">Features</Link></li>
+              <li><Link href="#" className="hover:text-primary">Pricing</Link></li>
+              <li><Link href="#" className="hover:text-primary">Enterprise</Link></li>
+            </ul>
           </div>
+          <div>
+            <h4 className="font-bold text-gray-900 mb-4">Resources</h4>
+            <ul className="space-y-2 text-gray-600">
+              <li><Link href="#" className="hover:text-primary">Documentation</Link></li>
+              <li><Link href="#" className="hover:text-primary">Blog</Link></li>
+              <li><Link href="#" className="hover:text-primary">Community</Link></li>
+            </ul>
+          </div>
+          <div>
+            <h4 className="font-bold text-gray-900 mb-4">Legal</h4>
+            <ul className="space-y-2 text-gray-600">
+              <li><Link href="#" className="hover:text-primary">Privacy</Link></li>
+              <li><Link href="#" className="hover:text-primary">Terms</Link></li>
+            </ul>
+          </div>
+        </div>
+        <div className="container mx-auto px-4 md:px-6 mt-12 pt-8 border-t border-gray-200 text-center text-gray-500">
+          © 2025 CoWrite AI Inc. All rights reserved.
         </div>
       </footer>
     </div>

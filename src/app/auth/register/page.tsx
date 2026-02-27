@@ -2,9 +2,12 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Mail, Lock, User, ArrowRight, CheckCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Mail, Lock, User, ArrowRight, CheckCircle2, AlertCircle } from 'lucide-react';
+import { AuthLayout } from '@/components/auth/AuthLayout';
 
 export default function RegisterPage() {
+  const router = useRouter();
   const [formData, setFormData] = useState({
     name: '',
     email: '',
@@ -20,29 +23,29 @@ export default function RegisterPage() {
     const errors: Record<string, string> = {};
 
     if (!formData.name || formData.name.length < 2) {
-      errors.name = 'NAME TOO SHORT (MIN 2 CHARS)';
+      errors.name = 'Name must be at least 2 characters';
     }
 
     if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = 'INVALID EMAIL FORMAT';
+      errors.email = 'Please enter a valid email address';
     }
 
     if (!formData.password || formData.password.length < 8) {
-      errors.password = 'PASSWORD TOO SHORT (MIN 8 CHARS)';
+      errors.password = 'Password must be at least 8 characters';
     } else if (!/(?=.*[a-z])/.test(formData.password)) {
-      errors.password = 'NEEDS LOWERCASE LETTER';
+      errors.password = 'Requires at least one lowercase letter';
     } else if (!/(?=.*[A-Z])/.test(formData.password)) {
-      errors.password = 'NEEDS UPPERCASE LETTER';
+      errors.password = 'Requires at least one uppercase letter';
     } else if (!/(?=.*\d)/.test(formData.password)) {
-      errors.password = 'NEEDS NUMBER';
+      errors.password = 'Requires at least one number';
     }
 
     if (formData.password !== formData.confirmPassword) {
-      errors.confirmPassword = 'PASSWORDS DO NOT MATCH';
+      errors.confirmPassword = 'Passwords do not match';
     }
 
     if (!formData.agreeToTerms) {
-      errors.agreeToTerms = 'MUST AGREE TO TERMS';
+      errors.agreeToTerms = 'You must agree to the terms to continue';
     }
 
     setFieldErrors(errors);
@@ -51,7 +54,7 @@ export default function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
@@ -77,15 +80,15 @@ export default function RegisterPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.detail || 'REGISTRATION FAILED');
+        setError(data.detail || 'Registration failed. Please try again.');
         return;
       }
 
-      window.location.href = '/auth/login?message=REGISTRATION SUCCESSFUL! PLEASE SIGN IN.';
-      
-    } catch (err: any) {
+      router.push('/auth/login?message=Account created successfully! Please sign in.');
+
+    } catch (err) {
       console.error('Registration error:', err);
-      setError('NETWORK ERROR / CHECK CONNECTION');
+      setError('Network error. Please check your connection and try again.');
     } finally {
       setLoading(false);
     }
@@ -94,12 +97,12 @@ export default function RegisterPage() {
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
     const newValue = type === 'checkbox' ? checked : value;
-    
+
     setFormData(prev => ({
       ...prev,
       [name]: newValue
     }));
-    
+
     if (fieldErrors[name]) {
       setFieldErrors(prev => {
         const newErrors = { ...prev };
@@ -107,226 +110,200 @@ export default function RegisterPage() {
         return newErrors;
       });
     }
-    
+
     if (error) setError('');
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex items-center justify-center p-4 py-12">
-      {/* Fixed Header */}
-      <Link href="/" className="fixed top-8 left-8 text-xl font-mono text-[#39FF14] border-2 border-[#39FF14] px-3 py-1 z-50 backdrop-blur-sm hover:bg-[#39FF14] hover:text-[#0A0A0A] transition-all duration-100">
-        ← COWRITE.IA
-      </Link>
+    <AuthLayout
+      title="Create an account"
+      subtitle="Start your 14-day free trial. No credit card required."
+    >
+      {/* Error Message */}
+      {error && (
+        <div className="mb-6 p-4 rounded-xl bg-red-50 border border-red-200 flex items-start text-red-800 animate-fade-in">
+          <AlertCircle className="w-5 h-5 mr-3 flex-shrink-0 mt-0.5" />
+          <p className="text-sm">{error}</p>
+        </div>
+      )}
 
-      <div className="w-full max-w-md">
-        {/* Main Card */}
-        <div className="border-4 border-white bg-white p-8 md:p-10">
-          {/* Title */}
-          <div className="mb-8">
-            <h1 className="text-4xl md:text-5xl font-black uppercase mb-2 text-[#0A0A0A]">
-              REGISTER
-            </h1>
-            <p className="font-mono text-sm text-gray-600">
-              CREATE YOUR ACCOUNT
-            </p>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        {/* Name Field */}
+        <div className="space-y-1.5">
+          <label htmlFor="name" className="block text-sm font-medium text-foreground">
+            Full name
+          </label>
+          <div className="relative">
+            <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              id="name"
+              name="name"
+              type="text"
+              value={formData.name}
+              onChange={handleChange}
+              className={`input-field pl-10 ${fieldErrors.name ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+              placeholder="John Doe"
+              required
+              autoComplete="name"
+              disabled={loading}
+            />
           </div>
+          {fieldErrors.name && (
+            <p className="text-sm font-medium text-red-500 mt-1">{fieldErrors.name}</p>
+          )}
+        </div>
 
-          {/* Error Message */}
-          {error && (
-            <div className="mb-6 border-4 border-[#FF073A] bg-[#FF073A]/10 p-4">
-              <p className="font-mono text-sm text-[#FF073A] uppercase">
-                ✗ {error}
-              </p>
+        {/* Email Field */}
+        <div className="space-y-1.5">
+          <label htmlFor="email" className="block text-sm font-medium text-foreground">
+            Email address
+          </label>
+          <div className="relative">
+            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              id="email"
+              name="email"
+              type="email"
+              value={formData.email}
+              onChange={handleChange}
+              className={`input-field pl-10 ${fieldErrors.email ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+              placeholder="name@company.com"
+              required
+              autoComplete="email"
+              disabled={loading}
+            />
+          </div>
+          {fieldErrors.email && (
+            <p className="text-sm font-medium text-red-500 mt-1">{fieldErrors.email}</p>
+          )}
+        </div>
+
+        {/* Password Field */}
+        <div className="space-y-1.5">
+          <label htmlFor="password" className="block text-sm font-medium text-foreground">
+            Password
+          </label>
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              id="password"
+              name="password"
+              type="password"
+              value={formData.password}
+              onChange={handleChange}
+              className={`input-field pl-10 ${fieldErrors.password ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+              placeholder="••••••••"
+              required
+              autoComplete="new-password"
+              disabled={loading}
+            />
+          </div>
+          {fieldErrors.password && (
+            <p className="text-sm font-medium text-red-500 mt-1">{fieldErrors.password}</p>
+          )}
+        </div>
+
+        {/* Confirm Password Field */}
+        <div className="space-y-1.5">
+          <label htmlFor="confirmPassword" className="block text-sm font-medium text-foreground">
+            Confirm password
+          </label>
+          <div className="relative">
+            <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              value={formData.confirmPassword}
+              onChange={handleChange}
+              className={`input-field pl-10 ${fieldErrors.confirmPassword ? 'border-red-500 focus-visible:ring-red-500' : ''}`}
+              placeholder="••••••••"
+              required
+              autoComplete="new-password"
+              disabled={loading}
+            />
+          </div>
+          {fieldErrors.confirmPassword && (
+            <p className="text-sm font-medium text-red-500 mt-1">{fieldErrors.confirmPassword}</p>
+          )}
+        </div>
+
+        {/* Terms Checkbox */}
+        <div className="pt-2 pb-1">
+          <div className="flex items-start gap-3">
+            <input
+              id="agreeToTerms"
+              name="agreeToTerms"
+              type="checkbox"
+              checked={formData.agreeToTerms}
+              onChange={handleChange}
+              className="mt-1 h-4 w-4 rounded border-input text-primary focus:ring-primary"
+              disabled={loading}
+            />
+            <label htmlFor="agreeToTerms" className="text-sm text-muted-foreground leading-relaxed">
+              By creating an account, you agree to our{' '}
+              <Link href="/terms" className="text-foreground hover:text-primary font-medium hover:underline transition-colors">
+                Terms of Service
+              </Link>{' '}
+              and{' '}
+              <Link href="/privacy" className="text-foreground hover:text-primary font-medium hover:underline transition-colors">
+                Privacy Policy
+              </Link>.
+            </label>
+          </div>
+          {fieldErrors.agreeToTerms && (
+            <p className="text-sm font-medium text-red-500 mt-1 pl-7">{fieldErrors.agreeToTerms}</p>
+          )}
+        </div>
+
+        {/* Submit Button */}
+        <button
+          type="submit"
+          disabled={loading}
+          className="btn-primary w-full mt-2"
+        >
+          {loading ? (
+            <div className="flex items-center justify-center gap-2">
+              <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+              Creating account...
+            </div>
+          ) : (
+            <div className="flex items-center justify-center gap-2">
+              Create account <ArrowRight className="w-4 h-4" />
             </div>
           )}
+        </button>
+      </form>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Name Field */}
-            <div>
-              <label htmlFor="name" className="block font-mono text-xs uppercase mb-2 text-[#0A0A0A] font-bold">
-                FULL NAME
-              </label>
-              <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  id="name"
-                  name="name"
-                  type="text"
-                  value={formData.name}
-                  onChange={handleChange}
-                  className={`w-full border-4 ${fieldErrors.name ? 'border-[#FF073A]' : 'border-[#0A0A0A]'} bg-white px-4 py-3 pl-12 font-mono text-sm focus:outline-none focus:border-[#39FF14] transition-colors`}
-                  placeholder="John Doe"
-                  required
-                  autoComplete="name"
-                />
-              </div>
-              {fieldErrors.name && (
-                <p className="mt-1 font-mono text-xs text-[#FF073A]">{fieldErrors.name}</p>
-              )}
-            </div>
-
-            {/* Email Field */}
-            <div>
-              <label htmlFor="email" className="block font-mono text-xs uppercase mb-2 text-[#0A0A0A] font-bold">
-                EMAIL ADDRESS
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  id="email"
-                  name="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className={`w-full border-4 ${fieldErrors.email ? 'border-[#FF073A]' : 'border-[#0A0A0A]'} bg-white px-4 py-3 pl-12 font-mono text-sm focus:outline-none focus:border-[#39FF14] transition-colors`}
-                  placeholder="your@email.com"
-                  required
-                  autoComplete="email"
-                />
-              </div>
-              {fieldErrors.email && (
-                <p className="mt-1 font-mono text-xs text-[#FF073A]">{fieldErrors.email}</p>
-              )}
-            </div>
-
-            {/* Password Field */}
-            <div>
-              <label htmlFor="password" className="block font-mono text-xs uppercase mb-2 text-[#0A0A0A] font-bold">
-                PASSWORD
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  id="password"
-                  name="password"
-                  type="password"
-                  value={formData.password}
-                  onChange={handleChange}
-                  className={`w-full border-4 ${fieldErrors.password ? 'border-[#FF073A]' : 'border-[#0A0A0A]'} bg-white px-4 py-3 pl-12 font-mono text-sm focus:outline-none focus:border-[#39FF14] transition-colors`}
-                  placeholder="••••••••"
-                  required
-                  autoComplete="new-password"
-                />
-              </div>
-              {fieldErrors.password && (
-                <p className="mt-1 font-mono text-xs text-[#FF073A]">{fieldErrors.password}</p>
-              )}
-            </div>
-
-            {/* Confirm Password Field */}
-            <div>
-              <label htmlFor="confirmPassword" className="block font-mono text-xs uppercase mb-2 text-[#0A0A0A] font-bold">
-                CONFIRM PASSWORD
-              </label>
-              <div className="relative">
-                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                <input
-                  id="confirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  className={`w-full border-4 ${fieldErrors.confirmPassword ? 'border-[#FF073A]' : 'border-[#0A0A0A]'} bg-white px-4 py-3 pl-12 font-mono text-sm focus:outline-none focus:border-[#39FF14] transition-colors`}
-                  placeholder="••••••••"
-                  required
-                  autoComplete="new-password"
-                />
-              </div>
-              {fieldErrors.confirmPassword && (
-                <p className="mt-1 font-mono text-xs text-[#FF073A]">{fieldErrors.confirmPassword}</p>
-              )}
-            </div>
-
-            {/* Terms Checkbox */}
-            <div>
-              <div className="flex items-start gap-3">
-                <input
-                  id="agreeToTerms"
-                  name="agreeToTerms"
-                  type="checkbox"
-                  checked={formData.agreeToTerms}
-                  onChange={handleChange}
-                  className="w-4 h-4 border-2 border-[#0A0A0A] mt-1"
-                />
-                <label htmlFor="agreeToTerms" className="font-mono text-xs text-gray-600 leading-relaxed">
-                  I AGREE TO THE{' '}
-                  <Link href="/terms" className="text-[#0A0A0A] hover:text-[#39FF14] font-bold transition-colors uppercase">
-                    TERMS
-                  </Link>{' '}
-                  AND{' '}
-                  <Link href="/privacy" className="text-[#0A0A0A] hover:text-[#39FF14] font-bold transition-colors uppercase">
-                    PRIVACY POLICY
-                  </Link>
-                </label>
-              </div>
-              {fieldErrors.agreeToTerms && (
-                <p className="mt-1 font-mono text-xs text-[#FF073A]">{fieldErrors.agreeToTerms}</p>
-              )}
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full border-4 border-[#FF073A] bg-transparent text-[#FF073A] font-mono px-6 py-4 text-sm uppercase font-bold cursor-pointer transition-all duration-100 hover:bg-[#FF073A] hover:text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              style={{ boxShadow: '6px 6px 0 0 #FF073A' }}
-              onMouseEnter={(e) => !loading && (e.currentTarget.style.boxShadow = '0 0 0 0 #FF073A')}
-              onMouseLeave={(e) => !loading && (e.currentTarget.style.boxShadow = '6px 6px 0 0 #FF073A')}
-            >
-              {loading ? 'CREATING ACCOUNT...' : (
-                <>
-                  CREATE ACCOUNT <ArrowRight className="w-4 h-4" />
-                </>
-              )}
-            </button>
-          </form>
-
-          {/* Sign In Link */}
-          <div className="mt-8 pt-6 border-t-4 border-[#0A0A0A]">
-            <p className="font-mono text-xs text-center text-gray-600">
-              HAVE AN ACCOUNT?{' '}
-              <Link
-                href="/auth/login"
-                className="text-[#0A0A0A] hover:text-[#39FF14] font-bold transition-colors uppercase"
-              >
-                LOGIN HERE →
-              </Link>
-            </p>
-          </div>
-        </div>
-
-        {/* Benefits */}
-        <div className="mt-6 border-4 border-[#39FF14] bg-[#39FF14]/10 p-6">
-          <h3 className="font-mono text-xs uppercase font-bold text-[#39FF14] mb-4">
-            WHAT YOU GET:
-          </h3>
-          <div className="space-y-2">
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-[#39FF14] flex-shrink-0" />
-              <span className="font-mono text-xs text-gray-300">AI ENTITY EXTRACTION</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-[#39FF14] flex-shrink-0" />
-              <span className="font-mono text-xs text-gray-300">SEMANTIC SEARCH</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-[#39FF14] flex-shrink-0" />
-              <span className="font-mono text-xs text-gray-300">RELATIONSHIP MAPPING</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <CheckCircle className="w-4 h-4 text-[#39FF14] flex-shrink-0" />
-              <span className="font-mono text-xs text-gray-300">SECURE CLOUD STORAGE</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Footer Note */}
-        <div className="mt-6 text-center">
-          <p className="font-mono text-xs text-gray-500">
-            FREE 14-DAY TRIAL / NO CREDIT CARD
-          </p>
-        </div>
+      {/* Benefits List inside the card context */}
+      <div className="mt-8 pt-6 border-t border-border">
+        <h4 className="text-sm font-semibold text-foreground mb-3 uppercase tracking-wider">Features included</h4>
+        <ul className="space-y-2 text-sm text-muted-foreground">
+          <li className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-green-500" />
+            <span>AI Entity Extraction & Tracking</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-green-500" />
+            <span>Semantic Story Search</span>
+          </li>
+          <li className="flex items-center gap-2">
+            <CheckCircle2 className="w-4 h-4 text-green-500" />
+            <span>Secure Cloud Backups</span>
+          </li>
+        </ul>
       </div>
-    </div>
+
+      {/* Sign In Link */}
+      <div className="mt-8 text-center text-sm text-muted-foreground">
+        Already have an account?{' '}
+        <Link
+          href="/auth/login"
+          className="font-medium text-primary hover:underline transition-all"
+        >
+          Sign in
+        </Link>
+      </div>
+    </AuthLayout>
   );
 }

@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { 
-  SearchQuery, 
-  SearchResponse, 
-  SearchFilters as SearchFiltersType, 
+import {
+  SearchQuery,
+  SearchResponse,
+  SearchFilters as SearchFiltersType,
   SearchResult,
-  Project 
+  Project
 } from '@/types';
 import { api } from '@/lib/api';
 import SearchInput from './SearchInput';
@@ -16,7 +16,7 @@ import SearchResults from './SearchResults';
 import SavedSearches from './SavedSearches';
 import SearchAnalytics from './SearchAnalytics';
 import SearchResultsExport from './SearchResultsExport';
-import { Save, History, Bookmark, BarChart3, Download } from 'lucide-react';
+import { Save, History, Bookmark, BarChart3, Search } from 'lucide-react';
 
 interface SearchInterfaceProps {
   projectId?: string;
@@ -46,7 +46,7 @@ export default function SearchInterface({
   highlightResultId
 }: SearchInterfaceProps) {
   const router = useRouter();
-  
+
   // Search state
   const [query, setQuery] = useState(initialQuery);
   const [filters, setFilters] = useState<SearchFiltersType>({
@@ -66,12 +66,12 @@ export default function SearchInterface({
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [currentOffset, setCurrentOffset] = useState(0);
   const [hasMore, setHasMore] = useState(false);
-  
+
   // UI state
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [activeTab, setActiveTab] = useState<'results' | 'saved' | 'history' | 'analytics'>('results');
   const [showExportModal, setShowExportModal] = useState(false);
-  
+
   // History and saved searches
   const [searchHistory, setSearchHistory] = useState<string[]>([]);
   const [savedSearches, setSavedSearches] = useState<SavedSearch[]>([]);
@@ -107,9 +107,9 @@ export default function SearchInterface({
         const element = document.getElementById(`result-${highlightResultId}`);
         if (element) {
           element.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          element.classList.add('ring-2', 'ring-blue-500', 'ring-opacity-50');
+          element.classList.add('ring-2', 'ring-amber-500', 'ring-opacity-50');
           setTimeout(() => {
-            element.classList.remove('ring-2', 'ring-blue-500', 'ring-opacity-50');
+            element.classList.remove('ring-2', 'ring-amber-500', 'ring-opacity-50');
           }, 3000);
         }
       }, 200);
@@ -132,18 +132,18 @@ export default function SearchInterface({
     if (query.length > 500) {
       return 'Search query is too long (maximum 500 characters)';
     }
-    
+
     // Check for potentially problematic patterns
     if (query.match(/[<>]/)) {
       return 'Search query contains invalid characters';
     }
-    
+
     return null;
   }, []);
 
   const performSearch = useCallback(async (
-    searchQuery: string, 
-    searchFilters: SearchFiltersType, 
+    searchQuery: string,
+    searchFilters: SearchFiltersType,
     offset: number = 0,
     append: boolean = false
   ) => {
@@ -155,7 +155,7 @@ export default function SearchInterface({
       setLoading(true);
       setCurrentOffset(0);
     }
-    
+
     setActiveTab('results');
 
     try {
@@ -263,8 +263,8 @@ export default function SearchInterface({
     performSearch(search.query, search.filters, 0, false);
 
     // Update last used
-    const updatedSearches = savedSearches.map(s => 
-      s.id === search.id 
+    const updatedSearches = savedSearches.map(s =>
+      s.id === search.id
         ? { ...s, last_used: new Date().toISOString() }
         : s
     );
@@ -279,7 +279,7 @@ export default function SearchInterface({
   };
 
   const renameSavedSearch = (searchId: string, newName: string) => {
-    const updatedSearches = savedSearches.map(s => 
+    const updatedSearches = savedSearches.map(s =>
       s.id === searchId ? { ...s, name: newName } : s
     );
     setSavedSearches(updatedSearches);
@@ -290,7 +290,7 @@ export default function SearchInterface({
     const newSavedResults = savedResults.includes(result.id)
       ? savedResults.filter(id => id !== result.id)
       : [...savedResults, result.id];
-    
+
     setSavedResults(newSavedResults);
     localStorage.setItem('saved_results', JSON.stringify(newSavedResults));
   };
@@ -300,10 +300,35 @@ export default function SearchInterface({
     localStorage.removeItem('search_history');
   };
 
+  const tabs = [
+    {
+      id: 'results' as const,
+      label: 'Results',
+      badge: searchResponse ? searchResponse.total_count : null,
+    },
+    {
+      id: 'saved' as const,
+      label: 'Saved',
+      icon: <Bookmark className="w-3.5 h-3.5" />,
+      badge: savedSearches.length > 0 ? savedSearches.length : null,
+    },
+    {
+      id: 'analytics' as const,
+      label: 'Analytics',
+      icon: <BarChart3 className="w-3.5 h-3.5" />,
+    },
+    {
+      id: 'history' as const,
+      label: 'History',
+      icon: <History className="w-3.5 h-3.5" />,
+      badge: searchHistory.length > 0 ? searchHistory.length : null,
+    },
+  ];
+
   return (
-    <div className={`border-4 border-white bg-white ${className}`}>
+    <div className={`bg-white border border-stone-200 rounded-xl overflow-hidden shadow-sm ${className}`}>
       {/* Search Header */}
-      <div className="p-6 border-b-4 border-[#0A0A0A]">
+      <div className="p-5 border-b border-stone-200">
         <div className="space-y-4">
           {/* Search Input */}
           <SearchInput
@@ -335,13 +360,10 @@ export default function SearchInterface({
               {query.trim() && (
                 <button
                   onClick={saveCurrentSearch}
-                  className="flex items-center space-x-2 px-4 py-2 border-4 border-[#0A0A0A] bg-transparent text-[#0A0A0A] font-mono text-xs uppercase font-bold hover:bg-[#0A0A0A] hover:text-white transition-all duration-100"
-                  style={{ boxShadow: '4px 4px 0 0 #0A0A0A' }}
-                  onMouseEnter={(e) => e.currentTarget.style.boxShadow = '0 0 0 0 #0A0A0A'}
-                  onMouseLeave={(e) => e.currentTarget.style.boxShadow = '4px 4px 0 0 #0A0A0A'}
+                  className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 hover:text-amber-900 transition-all"
                 >
-                  <Save className="w-4 h-4" />
-                  <span>SAVE</span>
+                  <Save className="w-3.5 h-3.5" />
+                  <span>Save</span>
                 </button>
               )}
             </div>
@@ -349,94 +371,49 @@ export default function SearchInterface({
         </div>
       </div>
 
-      {/* Results Tabs */}
-      <div className="border-b-4 border-[#0A0A0A]">
+      {/* Tabs */}
+      <div className="border-b border-stone-200">
         <div className="flex">
-          <button
-            onClick={() => setActiveTab('results')}
-            className={`
-              px-6 py-3 font-mono text-xs uppercase font-bold border-r-4 border-[#0A0A0A] transition-all duration-100
-              ${activeTab === 'results'
-                ? 'bg-[#39FF14] text-[#0A0A0A]'
-                : 'bg-white text-gray-600 hover:bg-gray-100'
-              }
-            `}
-          >
-            RESULTS
-            {searchResponse && (
-              <span className="ml-2 px-2 py-0.5 bg-[#0A0A0A] text-white text-xs">
-                {searchResponse.total_count}
-              </span>
-            )}
-          </button>
-          
-          <button
-            onClick={() => setActiveTab('saved')}
-            className={`
-              flex items-center space-x-2 px-6 py-3 font-mono text-xs uppercase font-bold border-r-4 border-[#0A0A0A] transition-all duration-100
-              ${activeTab === 'saved'
-                ? 'bg-[#39FF14] text-[#0A0A0A]'
-                : 'bg-white text-gray-600 hover:bg-gray-100'
-              }
-            `}
-          >
-            <Bookmark className="w-4 h-4" />
-            <span>SAVED</span>
-            {savedSearches.length > 0 && (
-              <span className="px-2 py-0.5 bg-[#0A0A0A] text-white text-xs">
-                {savedSearches.length}
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={() => setActiveTab('analytics')}
-            className={`
-              flex items-center space-x-2 px-6 py-3 font-mono text-xs uppercase font-bold border-r-4 border-[#0A0A0A] transition-all duration-100
-              ${activeTab === 'analytics'
-                ? 'bg-[#39FF14] text-[#0A0A0A]'
-                : 'bg-white text-gray-600 hover:bg-gray-100'
-              }
-            `}
-          >
-            <BarChart3 className="w-4 h-4" />
-            <span>ANALYTICS</span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`
-              flex items-center space-x-2 px-6 py-3 font-mono text-xs uppercase font-bold transition-all duration-100
-              ${activeTab === 'history'
-                ? 'bg-[#39FF14] text-[#0A0A0A]'
-                : 'bg-white text-gray-600 hover:bg-gray-100'
-              }
-            `}
-          >
-            <History className="w-4 h-4" />
-            <span>HISTORY</span>
-            {searchHistory.length > 0 && (
-              <span className="px-2 py-0.5 bg-[#0A0A0A] text-white text-xs">
-                {searchHistory.length}
-              </span>
-            )}
-          </button>
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`
+                flex items-center gap-1.5 px-5 py-3 text-sm font-medium transition-all border-b-2
+                ${activeTab === tab.id
+                  ? 'border-amber-900 text-amber-900'
+                  : 'border-transparent text-stone-500 hover:text-stone-700 hover:border-stone-300'
+                }
+              `}
+            >
+              {tab.icon}
+              <span>{tab.label}</span>
+              {tab.badge !== null && tab.badge !== undefined && (
+                <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-bold ${activeTab === tab.id
+                    ? 'bg-amber-100 text-amber-900'
+                    : 'bg-stone-100 text-stone-500'
+                  }`}>
+                  {tab.badge}
+                </span>
+              )}
+            </button>
+          ))}
         </div>
       </div>
 
       {/* Tab Content */}
-      <div className="p-6">
+      <div className="p-5">
         {activeTab === 'results' && (
           !query.trim() && !searchResponse ? (
             <div className="text-center py-16">
-              <div className="w-20 h-20 border-4 border-gray-300 flex items-center justify-center mx-auto mb-6">
-                <History className="w-10 h-10 text-gray-300" />
+              <div className="w-16 h-16 bg-stone-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+                <Search className="w-8 h-8 text-stone-300" />
               </div>
-              <h3 className="text-2xl font-black uppercase text-[#0A0A0A] mb-2">
-                READY TO SEARCH
+              <h3 className="text-lg font-semibold text-stone-900 mb-1">
+                Ready to Search
               </h3>
-              <p className="font-mono text-sm text-gray-600 uppercase">
-                ENTER A QUERY TO FIND CONTENT
+              <p className="text-sm text-stone-500">
+                Enter a query to find content across your projects
               </p>
             </div>
           ) : (
@@ -471,36 +448,36 @@ export default function SearchInterface({
 
         {activeTab === 'history' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between pb-4 border-b-4 border-[#0A0A0A]">
-              <h3 className="font-mono text-sm font-bold text-[#0A0A0A] uppercase">
-                SEARCH HISTORY ({searchHistory.length})
+            <div className="flex items-center justify-between pb-4 border-b border-stone-200">
+              <h3 className="text-sm font-semibold text-stone-900">
+                Search History ({searchHistory.length})
               </h3>
               {searchHistory.length > 0 && (
                 <button
                   onClick={clearSearchHistory}
-                  className="font-mono text-xs uppercase text-[#FF073A] hover:text-white hover:bg-[#FF073A] px-3 py-1 border-2 border-[#FF073A] transition-all duration-100"
+                  className="text-xs font-medium text-red-500 hover:text-red-700 px-2 py-1 rounded-lg hover:bg-red-50 transition-all"
                 >
-                  CLEAR ALL
+                  Clear All
                 </button>
               )}
             </div>
-            
+
             {searchHistory.length === 0 ? (
               <div className="text-center py-12">
-                <History className="w-16 h-16 text-gray-300 mx-auto mb-4" />
-                <p className="font-mono text-sm text-gray-600 uppercase">NO SEARCH HISTORY</p>
+                <History className="w-10 h-10 text-stone-300 mx-auto mb-3" />
+                <p className="text-sm text-stone-500">No search history</p>
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 {searchHistory.map((historyQuery, index) => (
                   <button
                     key={index}
                     onClick={() => handleSearch(historyQuery)}
-                    className="w-full text-left p-4 border-4 border-[#0A0A0A] bg-gray-50 hover:bg-[#39FF14] transition-all duration-100 group"
+                    className="w-full text-left px-4 py-3 rounded-lg border border-stone-100 bg-stone-50 hover:bg-amber-50 hover:border-amber-200 transition-all group"
                   >
-                    <div className="flex items-center space-x-3">
-                      <History className="w-5 h-5 text-gray-400 group-hover:text-[#0A0A0A]" />
-                      <span className="font-mono text-sm text-[#0A0A0A] font-bold">{historyQuery}</span>
+                    <div className="flex items-center gap-3">
+                      <History className="w-4 h-4 text-stone-400 group-hover:text-amber-700 shrink-0" />
+                      <span className="text-sm text-stone-700 group-hover:text-amber-900 font-medium">{historyQuery}</span>
                     </div>
                   </button>
                 ))}

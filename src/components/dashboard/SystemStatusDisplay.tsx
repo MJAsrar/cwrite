@@ -2,12 +2,12 @@
 
 import { SystemStatus } from '@/types';
 import Button from '@/components/ui/Button';
-import { 
-  CheckCircle, 
-  AlertTriangle, 
-  XCircle, 
-  Database, 
-  Zap, 
+import {
+  CheckCircle,
+  AlertTriangle,
+  XCircle,
+  Database,
+  Zap,
   Search,
   RefreshCw
 } from 'lucide-react';
@@ -19,7 +19,7 @@ interface SystemStatusDisplayProps {
 interface ServiceStatusProps {
   name: string;
   status: 'healthy' | 'degraded' | 'down';
-  icon: any;
+  icon: React.ElementType;
 }
 
 function ServiceStatus({ name, status, icon: Icon }: ServiceStatusProps) {
@@ -128,7 +128,7 @@ export default function SystemStatusDisplay({ status }: SystemStatusDisplayProps
 
   // Only show if there are issues or if explicitly requested
   const shouldShow = status.status !== 'healthy';
-  
+
   if (!shouldShow) {
     return null;
   }
@@ -173,10 +173,10 @@ export default function SystemStatusDisplay({ status }: SystemStatusDisplayProps
         <div className="mt-4 pt-4 border-t border-current border-opacity-20">
           <div className="flex items-center justify-between">
             <p className="text-sm text-secondary-600">
-              We're working to resolve any issues. Your data is safe.
+              We&apos;re working to resolve any issues. Your data is safe.
             </p>
-            <Button 
-              variant="ghost" 
+            <Button
+              variant="ghost"
               className="flex items-center space-x-2 text-sm text-primary-600 hover:text-primary-700 font-medium"
             >
               <RefreshCw className="w-4 h-4" />

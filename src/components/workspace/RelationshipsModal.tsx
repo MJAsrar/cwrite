@@ -1,182 +1,166 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, Network, Search, Filter, ArrowRight } from 'lucide-react';
+import { X, Network, Search, Filter, ArrowRight, RefreshCw, Loader2, CheckCircle } from 'lucide-react';
 import { Relationship } from '@/types';
+import { api } from '@/lib/api';
 
 interface RelationshipsModalProps {
   relationships: Relationship[];
   isOpen: boolean;
   onClose: () => void;
   onRelationshipClick?: (relationshipId: string) => void;
+  theme?: 'sepia' | 'dark' | 'light';
+  projectId?: string;
+  onRefresh?: () => Promise<void>;
 }
 
-export default function RelationshipsModal({ relationships, isOpen, onClose, onRelationshipClick }: RelationshipsModalProps) {
-  const [searchQuery, setSearchQuery] = useState('');
+export default function RelationshipsModal({ relationships, isOpen, onClose, onRelationshipClick, theme = 'sepia', projectId, onRefresh }: RelationshipsModalProps) {
+  const [search, setSearch] = useState('');
   const [selectedType, setSelectedType] = useState<string | null>(null);
-  const [filteredRelationships, setFilteredRelationships] = useState<Relationship[]>(relationships);
+  const [filtered, setFiltered] = useState<Relationship[]>(relationships);
+  const [isRediscovering, setIsRediscovering] = useState(false);
+  const [rediscoverStatus, setRediscoverStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const isDark = theme === 'dark';
 
-  // Get unique relationship types
-  const relationshipTypes = Array.from(new Set(relationships.map(r => r.relationship_type))).sort();
+  const types = Array.from(new Set(relationships.map(r => r.relationship_type))).sort();
 
   useEffect(() => {
-    let filtered = relationships;
-
-    // Filter by type
-    if (selectedType) {
-      filtered = filtered.filter(r => r.relationship_type === selectedType);
+    let f = relationships;
+    if (selectedType) f = f.filter(r => r.relationship_type === selectedType);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      f = f.filter(r => r.source_entity_name?.toLowerCase().includes(q) || r.target_entity_name?.toLowerCase().includes(q) || r.description?.toLowerCase().includes(q));
     }
+    f.sort((a, b) => (b.strength || 0) - (a.strength || 0));
+    setFiltered(f);
+  }, [relationships, search, selectedType]);
 
-    // Filter by search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(r => 
-        r.source_entity_name?.toLowerCase().includes(query) ||
-        r.target_entity_name?.toLowerCase().includes(query) ||
-        r.description?.toLowerCase().includes(query)
-      );
+  const handleRediscover = async () => {
+    if (!projectId) return;
+    setIsRediscovering(true);
+    setRediscoverStatus('idle');
+    try {
+      await api.post(`/api/v1/projects/${projectId}/relationships/discover?force_rediscovery=true`);
+      setRediscoverStatus('success');
+      setTimeout(() => setRediscoverStatus('idle'), 3000);
+      if (onRefresh) {
+        setTimeout(async () => { await onRefresh(); }, 2000);
+      }
+    } catch (err) {
+      console.error('Relationship re-discovery failed:', err);
+      setRediscoverStatus('error');
+      setTimeout(() => setRediscoverStatus('idle'), 3000);
+    } finally {
+      setIsRediscovering(false);
     }
-
-    // Sort by strength
-    filtered.sort((a, b) => (b.strength || 0) - (a.strength || 0));
-
-    setFilteredRelationships(filtered);
-  }, [relationships, searchQuery, selectedType]);
+  };
 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
-      <div className="border-4 border-white bg-white w-full max-w-5xl max-h-[85vh] flex flex-col">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b-4 border-[#0A0A0A]">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm">
+      <div className={`w-full max-w-4xl max-h-[85vh] flex flex-col rounded-2xl shadow-2xl border overflow-hidden ${isDark ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-stone-200'}`}>
+        <div className={`flex items-center justify-between p-4 border-b ${isDark ? 'border-zinc-700' : 'border-stone-200'}`}>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-[#FF073A] border-4 border-[#0A0A0A] flex items-center justify-center">
-              <Network className="w-6 h-6 text-white" />
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${isDark ? 'bg-indigo-900/40 text-indigo-400' : 'bg-indigo-100 text-indigo-600'}`}>
+              <Network className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-xl font-black uppercase text-[#0A0A0A]">RELATIONSHIPS</h2>
-              <p className="font-mono text-xs text-gray-600 uppercase">
-                {filteredRelationships.length} OF {relationships.length} CONNECTIONS
-              </p>
+              <h2 className="text-base font-bold" style={{ fontFamily: "'Crimson Pro', Georgia, serif" }}>Plot & Relationships</h2>
+              <p className="text-[10px] opacity-50">{filtered.length} of {relationships.length} connections</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 text-[#0A0A0A] hover:text-[#FF073A] transition-colors">
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Search and Filters */}
-        <div className="p-4 border-b-4 border-[#0A0A0A] space-y-3">
-          <div className="flex items-center gap-2 border-4 border-[#0A0A0A] px-3 py-2">
-            <Search className="w-4 h-4 text-[#0A0A0A]" />
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="SEARCH RELATIONSHIPS..."
-              className="flex-1 bg-transparent border-0 outline-none text-[#0A0A0A] placeholder:text-gray-400 font-mono text-xs uppercase"
-            />
-          </div>
-
-          <div className="flex items-center gap-2 flex-wrap">
-            <Filter className="w-4 h-4 text-[#0A0A0A]" />
-            <button
-              onClick={() => setSelectedType(null)}
-              className={`px-3 py-1 border-2 font-mono text-xs uppercase font-bold transition-all duration-100 ${
-                selectedType === null 
-                  ? 'border-[#FF073A] bg-[#FF073A] text-white' 
-                  : 'border-[#0A0A0A] bg-transparent text-[#0A0A0A] hover:bg-gray-100'
-              }`}
-            >
-              ALL
-            </button>
-            {relationshipTypes.map(type => (
+          <div className="flex items-center gap-2">
+            {projectId && (
               <button
-                key={type}
-                onClick={() => setSelectedType(type)}
-                className={`px-3 py-1 border-2 font-mono text-xs uppercase font-bold transition-all duration-100 ${
-                  selectedType === type 
-                    ? 'border-[#FF073A] bg-[#FF073A] text-white' 
-                    : 'border-[#0A0A0A] bg-transparent text-[#0A0A0A] hover:bg-gray-100'
-                }`}
+                onClick={handleRediscover}
+                disabled={isRediscovering}
+                title="Re-discover relationships between all entities"
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-all ${rediscoverStatus === 'success'
+                    ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20'
+                    : rediscoverStatus === 'error'
+                      ? 'bg-red-500/10 text-red-600 border border-red-500/20'
+                      : isDark
+                        ? 'bg-indigo-900/30 text-indigo-400 border border-indigo-500/20 hover:bg-indigo-900/50'
+                        : 'bg-indigo-50 text-indigo-600 border border-indigo-200 hover:bg-indigo-100'
+                  } ${isRediscovering ? 'opacity-60 cursor-not-allowed' : ''}`}
               >
+                {isRediscovering ? (
+                  <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Discovering…</>
+                ) : rediscoverStatus === 'success' ? (
+                  <><CheckCircle className="w-3.5 h-3.5" /> Started!</>
+                ) : rediscoverStatus === 'error' ? (
+                  <>Failed</>
+                ) : (
+                  <><RefreshCw className="w-3.5 h-3.5" /> Re-discover</>
+                )}
+              </button>
+            )}
+            <button onClick={onClose} className="p-1.5 rounded-lg opacity-40 hover:opacity-100"><X className="w-4 h-4" /></button>
+          </div>
+        </div>
+        <div className={`p-3 space-y-2 border-b ${isDark ? 'border-zinc-700' : 'border-stone-200'}`}>
+          <div className={`flex items-center gap-2 px-3 py-2 rounded-xl border ${isDark ? 'bg-zinc-800 border-zinc-700' : 'bg-stone-50 border-stone-200'}`}>
+            <Search className="w-3.5 h-3.5 opacity-40" />
+            <input type="text" value={search} onChange={e => setSearch(e.target.value)} placeholder="Search relationships…"
+              className="flex-1 bg-transparent border-0 outline-none text-xs" />
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <Filter className="w-3 h-3 opacity-40" />
+            <button onClick={() => setSelectedType(null)}
+              className={`px-2.5 py-1 rounded-full text-[10px] font-semibold transition ${selectedType === null ? 'bg-indigo-600 text-white' : isDark ? 'bg-zinc-700 text-zinc-300' : 'bg-stone-100 text-stone-600'}`}>
+              All
+            </button>
+            {types.map(type => (
+              <button key={type} onClick={() => setSelectedType(type)}
+                className={`px-2.5 py-1 rounded-full text-[10px] font-semibold transition ${selectedType === type ? 'bg-indigo-600 text-white' : isDark ? 'bg-zinc-700 text-zinc-300' : 'bg-stone-100 text-stone-600'}`}>
                 {type.replace(/_/g, ' ')} ({relationships.filter(r => r.relationship_type === type).length})
               </button>
             ))}
           </div>
         </div>
-
-        {/* Relationships List */}
-        <div className="flex-1 overflow-y-auto p-4">
-          {filteredRelationships.length === 0 ? (
-            <div className="text-center py-12">
-              <Network className="w-16 h-16 mx-auto mb-4 text-gray-300" />
-              <p className="font-black text-xl uppercase text-[#0A0A0A] mb-1">NO RELATIONSHIPS</p>
-              <p className="font-mono text-xs text-gray-600 uppercase">
-                {searchQuery ? 'TRY DIFFERENT SEARCH' : 'UPLOAD FILES TO DISCOVER'}
-              </p>
+        <div className="flex-1 overflow-y-auto p-4 custom-scrollbar">
+          {filtered.length === 0 ? (
+            <div className="text-center py-16 opacity-40">
+              <Network className="w-10 h-10 mx-auto mb-3" />
+              <p className="text-sm font-semibold mb-1">No relationships</p>
+              <p className="text-xs">{search ? 'Try different search' : 'Upload files to discover'}</p>
             </div>
           ) : (
-            <div className="space-y-3">
-              {filteredRelationships.map(relationship => {
-                return (
-                  <button
-                    key={relationship.id}
-                    onClick={() => {
-                      if (onRelationshipClick) {
-                        onRelationshipClick(relationship.id);
-                      }
-                    }}
-                    className="w-full text-left p-4 border-4 border-[#0A0A0A] bg-gray-50 hover:bg-[#FF073A]/10 transition-all duration-100"
-                  >
-                    <div className="flex items-center gap-3 mb-3">
-                      <div className="px-3 py-2 bg-[#39FF14] border-2 border-[#0A0A0A] font-black text-sm uppercase text-[#0A0A0A] truncate flex-1">
-                        {relationship.source_entity_name || 'UNKNOWN'}
-                      </div>
-                      <div className="flex items-center gap-2 flex-shrink-0">
-                        <ArrowRight className="w-5 h-5 text-[#0A0A0A]" />
-                        <div className="px-2 py-1 bg-[#FF073A] border-2 border-[#0A0A0A] font-mono text-xs font-bold text-white uppercase whitespace-nowrap">
-                          {relationship.relationship_type.replace(/_/g, ' ')}
-                        </div>
-                        <ArrowRight className="w-5 h-5 text-[#0A0A0A]" />
-                      </div>
-                      <div className="px-3 py-2 bg-[#39FF14] border-2 border-[#0A0A0A] font-black text-sm uppercase text-[#0A0A0A] truncate flex-1">
-                        {relationship.target_entity_name || 'UNKNOWN'}
-                      </div>
+            <div className="space-y-2">
+              {filtered.map(rel => (
+                <button key={rel.id}
+                  onClick={() => onRelationshipClick?.(rel.id)}
+                  className={`w-full text-left p-3.5 rounded-xl border transition hover:scale-[1.005] ${isDark ? 'bg-zinc-800 border-zinc-700 hover:bg-zinc-750' : 'bg-stone-50 border-stone-200 hover:bg-stone-100'}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className={`px-2.5 py-1 rounded-lg text-sm font-medium truncate flex-1 ${isDark ? 'bg-zinc-700 text-zinc-200' : 'bg-white border border-stone-200'}`}>
+                      {rel.source_entity_name || 'Unknown'}
                     </div>
-
-                    <div className="flex items-center justify-between">
-                      {relationship.description && (
-                        <p className="font-mono text-xs text-gray-600 flex-1">
-                          {relationship.description}
-                        </p>
-                      )}
-                      {relationship.strength && (
-                        <div className="flex items-center gap-2 ml-4">
-                          <div className="w-16 h-2 border-2 border-[#0A0A0A] bg-white">
-                            <div 
-                              className="h-full bg-[#39FF14]" 
-                              style={{ width: `${Math.min(100, (relationship.strength || 0) * 100)}%` }}
-                            />
-                          </div>
-                          <span className="font-mono text-xs font-bold text-[#0A0A0A]">
-                            {Math.round((relationship.strength || 0) * 100)}%
-                          </span>
-                        </div>
-                      )}
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <ArrowRight className="w-3 h-3 opacity-30" />
+                      <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-indigo-600 text-white whitespace-nowrap">
+                        {rel.relationship_type.replace(/_/g, ' ')}
+                      </span>
+                      <ArrowRight className="w-3 h-3 opacity-30" />
                     </div>
-
-                    {relationship.evidence && relationship.evidence.length > 0 && (
-                      <div className="mt-2 pt-2 border-t-2 border-[#0A0A0A]">
-                        <span className="font-mono text-xs text-gray-600 uppercase">
-                          {relationship.evidence.length} EVIDENCE
-                        </span>
+                    <div className={`px-2.5 py-1 rounded-lg text-sm font-medium truncate flex-1 ${isDark ? 'bg-zinc-700 text-zinc-200' : 'bg-white border border-stone-200'}`}>
+                      {rel.target_entity_name || 'Unknown'}
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    {rel.description && <p className="text-[10px] opacity-50 flex-1">{rel.description}</p>}
+                    {rel.strength && (
+                      <div className="flex items-center gap-1.5 ml-4 flex-shrink-0">
+                        <div className={`w-14 h-1 rounded-full overflow-hidden ${isDark ? 'bg-zinc-700' : 'bg-stone-200'}`}>
+                          <div className="h-full rounded-full bg-indigo-500" style={{ width: `${Math.min(100, (rel.strength || 0) * 100)}%` }} />
+                        </div>
+                        <span className="text-[9px] font-medium opacity-50">{Math.round((rel.strength || 0) * 100)}%</span>
                       </div>
                     )}
-                  </button>
-                );
-              })}
+                  </div>
+                </button>
+              ))}
             </div>
           )}
         </div>
@@ -184,7 +168,3 @@ export default function RelationshipsModal({ relationships, isOpen, onClose, onR
     </div>
   );
 }
-
-
-
-

@@ -59,7 +59,7 @@ module.exports = {
         },
       },
       fontFamily: {
-        sans: ['var(--font-geist-sans)', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-jakarta)', 'var(--font-geist-sans)', 'system-ui', 'sans-serif'],
         serif: ['var(--font-playfair)', 'Georgia', 'serif'],
         mono: ['var(--font-geist-mono)', 'Courier New', 'monospace'],
       },
