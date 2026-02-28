@@ -15,7 +15,6 @@ import {
   Upload,
   ChevronLeft,
   Maximize2,
-  Type,
   Sparkles,
   Loader2,
   FilePlus,
@@ -44,6 +43,29 @@ interface VSCodeWorkspaceProps {
 }
 
 type ThemeKey = 'sepia' | 'dark' | 'light';
+type TypographyPresetKey = 'serif' | 'sans' | 'mono';
+type TypographyLayoutKey = 'default' | 'center' | 'left-margin' | 'right-margin';
+type TypographyCaseKey = 'default' | 'capitalize' | 'uppercase' | 'lowercase';
+
+const TYPOGRAPHY_PRESETS: Record<TypographyPresetKey, { label: string; fontFamily: string }> = {
+  serif: { label: 'Serif', fontFamily: "'Crimson Pro', 'Georgia', 'Cambria', serif" },
+  sans: { label: 'Sans', fontFamily: "'Inter', 'system-ui', sans-serif" },
+  mono: { label: 'Mono', fontFamily: "'JetBrains Mono', 'Consolas', 'Monaco', monospace" }
+};
+
+const TYPOGRAPHY_LAYOUTS: Record<TypographyLayoutKey, { label: string }> = {
+  default: { label: 'Default' },
+  center: { label: 'Centered' },
+  'left-margin': { label: 'Left Margined' },
+  'right-margin': { label: 'Right Margined' }
+};
+
+const TYPOGRAPHY_CASES: Record<TypographyCaseKey, { label: string }> = {
+  default: { label: 'Default' },
+  capitalize: { label: 'Capital First Letters' },
+  uppercase: { label: 'UPPERCASE' },
+  lowercase: { label: 'lowercase' }
+};
 
 const THEME_CLASSES: Record<ThemeKey, { bg: string; text: string; border: string; sidebar: string; rail: string; hover: string; muted: string }> = {
   sepia: {
@@ -104,6 +126,12 @@ export default function VSCodeWorkspace({
   const [saveMessage, setSaveMessage] = useState<string>('');
   const [noticeMessage, setNoticeMessage] = useState<string>('');
   const [onlinePhase, setOnlinePhase] = useState<'label' | 'transition' | 'dot'>('label');
+  const [showTypographyMenu, setShowTypographyMenu] = useState(false);
+  const [typographyPreset, setTypographyPreset] = useState<TypographyPresetKey>('serif');
+  const [typographyLayout, setTypographyLayout] = useState<TypographyLayoutKey>('default');
+  const [typographyCase, setTypographyCase] = useState<TypographyCaseKey>('default');
+  const [typographyFontSize, setTypographyFontSize] = useState(18);
+  const [typographyLineHeight, setTypographyLineHeight] = useState(32);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [pendingDestination, setPendingDestination] = useState<string | null>(null);
@@ -151,6 +179,43 @@ export default function VSCodeWorkspace({
     const stored = localStorage.getItem('cowrite-autosave-enabled');
     setAutoSaveEnabled(stored === 'true');
   }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = localStorage.getItem(`cowrite-typography:${project.id}`);
+    if (!stored) return;
+
+    try {
+      const parsed = JSON.parse(stored) as Partial<{
+        preset: TypographyPresetKey;
+        layout: TypographyLayoutKey;
+        textCase: TypographyCaseKey;
+        fontSize: number;
+        lineHeight: number;
+      }>;
+      if (parsed.preset && TYPOGRAPHY_PRESETS[parsed.preset]) setTypographyPreset(parsed.preset);
+      if (parsed.layout && TYPOGRAPHY_LAYOUTS[parsed.layout]) setTypographyLayout(parsed.layout);
+      if (parsed.textCase && TYPOGRAPHY_CASES[parsed.textCase]) setTypographyCase(parsed.textCase);
+      if (typeof parsed.fontSize === 'number') setTypographyFontSize(parsed.fontSize);
+      if (typeof parsed.lineHeight === 'number') setTypographyLineHeight(parsed.lineHeight);
+    } catch {
+      // Ignore malformed saved typography preferences.
+    }
+  }, [project.id]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(
+      `cowrite-typography:${project.id}`,
+      JSON.stringify({
+        preset: typographyPreset,
+        layout: typographyLayout,
+        textCase: typographyCase,
+        fontSize: typographyFontSize,
+        lineHeight: typographyLineHeight
+      })
+    );
+  }, [project.id, typographyPreset, typographyLayout, typographyCase, typographyFontSize, typographyLineHeight]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -383,6 +448,9 @@ export default function VSCodeWorkspace({
   };
 
   const genreLabel = (project as any)?.settings?.genre || '';
+  const typographyFamily = TYPOGRAPHY_PRESETS[typographyPreset].fontFamily;
+  const typographyLayoutLabel = TYPOGRAPHY_LAYOUTS[typographyLayout].label;
+  const typographyCaseLabel = TYPOGRAPHY_CASES[typographyCase].label;
   const toastTone =
     saveState === 'error'
       ? 'border-red-200 bg-red-50/95 text-red-700'
@@ -675,9 +743,168 @@ export default function VSCodeWorkspace({
                   PROCESSING
                 </div>
               )}
-              <button className={`p-2 rounded-md ${t.hover}`} title="Typography">
-                <Type size={18} />
-              </button>
+              <div className="relative">
+                <button
+                  className={`h-8 w-8 inline-flex items-center justify-center rounded-md transition-colors duration-200 ${showTypographyMenu ? 'text-indigo-600' : t.muted} ${t.hover}`}
+                  onClick={() => setShowTypographyMenu(v => !v)}
+                  title="Typography"
+                >
+                  <span className="text-[15px] font-semibold leading-none">T</span>
+                </button>
+
+                {showTypographyMenu && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setShowTypographyMenu(false)} />
+                    <div className={`absolute right-0 top-full mt-2 z-40 w-72 rounded-xl border shadow-xl p-3 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : theme === 'light' ? 'bg-white border-gray-200' : 'bg-[#FFF9EF] border-stone-200'}`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <p className={`text-xs font-semibold uppercase tracking-wider ${t.muted}`}>Typography</p>
+                          <p className="text-sm font-medium">Select Preference</p>
+                        </div>
+                        <button
+                          onClick={() => setShowTypographyMenu(false)}
+                          className={`p-1.5 rounded-md ${t.hover}`}
+                          title="Close typography menu"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+
+                      <div className="space-y-3">
+                        <div>
+                          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-2 ${t.muted}`}>Layout</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {(Object.entries(TYPOGRAPHY_LAYOUTS) as Array<[TypographyLayoutKey, { label: string }]>)
+                              .map(([key, layout]) => (
+                                <button
+                                  key={key}
+                                  onClick={() => setTypographyLayout(key)}
+                                  className={`rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors ${
+                                    typographyLayout === key
+                                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                      : theme === 'dark'
+                                        ? 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700'
+                                        : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                                  }`}
+                                >
+                                  {layout.label}
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-2 ${t.muted}`}>Text case</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {(Object.entries(TYPOGRAPHY_CASES) as Array<[TypographyCaseKey, { label: string }]>)
+                              .map(([key, option]) => (
+                                <button
+                                  key={key}
+                                  onClick={() => setTypographyCase(key)}
+                                  className={`rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors ${
+                                    typographyCase === key
+                                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                      : theme === 'dark'
+                                        ? 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700'
+                                        : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                                  }`}
+                                >
+                                  {option.label}
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-2 ${t.muted}`}>Font family</p>
+                          <div className="grid grid-cols-3 gap-2">
+                            {(Object.entries(TYPOGRAPHY_PRESETS) as Array<[TypographyPresetKey, { label: string; fontFamily: string }]>)
+                              .map(([key, preset]) => (
+                                <button
+                                  key={key}
+                                  onClick={() => setTypographyPreset(key)}
+                                  className={`rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors ${
+                                    typographyPreset === key
+                                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                      : theme === 'dark'
+                                        ? 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700'
+                                        : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                                  }`}
+                                >
+                                  <span className="block" style={{ fontFamily: preset.fontFamily }}>
+                                    {preset.label}
+                                  </span>
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-2 ${t.muted}`}>Font size</p>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setTypographyFontSize(size => Math.max(14, size - 1))}
+                              className={`h-8 w-8 rounded-md border ${t.hover}`}
+                              title="Decrease font size"
+                            >
+                              <span className="text-base leading-none">−</span>
+                            </button>
+                            <div className={`flex-1 h-8 rounded-md border px-3 flex items-center justify-center text-sm font-semibold ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-zinc-200' : 'bg-white border-stone-200 text-stone-700'}`}>
+                              {typographyFontSize}px
+                            </div>
+                            <button
+                              onClick={() => setTypographyFontSize(size => Math.min(28, size + 1))}
+                              className={`h-8 w-8 rounded-md border ${t.hover}`}
+                              title="Increase font size"
+                            >
+                              <span className="text-base leading-none">+</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-2 ${t.muted}`}>Line spacing</p>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={() => setTypographyLineHeight(height => Math.max(24, height - 2))}
+                              className={`h-8 w-8 rounded-md border ${t.hover}`}
+                              title="Decrease line spacing"
+                            >
+                              <span className="text-base leading-none">−</span>
+                            </button>
+                            <div className={`flex-1 h-8 rounded-md border px-3 flex items-center justify-center text-sm font-semibold ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-zinc-200' : 'bg-white border-stone-200 text-stone-700'}`}>
+                              {typographyLineHeight}
+                            </div>
+                            <button
+                              onClick={() => setTypographyLineHeight(height => Math.min(48, height + 2))}
+                              className={`h-8 w-8 rounded-md border ${t.hover}`}
+                              title="Increase line spacing"
+                            >
+                              <span className="text-base leading-none">+</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <button
+                            onClick={() => {
+                              setTypographyPreset('serif');
+                              setTypographyLayout('default');
+                              setTypographyCase('default');
+                              setTypographyFontSize(18);
+                              setTypographyLineHeight(32);
+                            }}
+                            className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+                          >
+                            Reset
+                          </button>
+                          <p className={`text-[11px] ${t.muted}`}>Applied instantly</p>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
               <button
                 className={`p-2 rounded-md ${t.hover}`}
                 onClick={() => setFocusMode(true)}
@@ -706,6 +933,11 @@ export default function VSCodeWorkspace({
             }
           }}
           autoSave={autoSaveEnabled}
+          fontSize={typographyFontSize}
+          lineHeight={typographyLineHeight}
+          fontFamily={typographyFamily}
+          layoutMode={typographyLayout}
+          textCase={typographyCase}
           onNewFile={() => {
             setShowNewFileInput(true);
             setNewFileName('');

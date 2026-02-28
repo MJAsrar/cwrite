@@ -26,6 +26,11 @@ interface TextEditorProps {
   onSave?: (content: string, filename?: string) => Promise<void>;
   onDirtyChange?: (hasChanges: boolean) => void;
   onSaveStateChange?: (state: 'idle' | 'saving' | 'saved' | 'error', message?: string, source?: 'manual' | 'auto') => void;
+  fontSize?: number;
+  lineHeight?: number;
+  fontFamily?: string;
+  layoutMode?: 'default' | 'center' | 'left-margin' | 'right-margin';
+  textCase?: 'default' | 'capitalize' | 'uppercase' | 'lowercase';
   onNewFile?: () => void;
   onAddToChat?: (context: {
     text: string;
@@ -100,6 +105,11 @@ const TextEditor = forwardRef(function TextEditor(
     onSave,
     onDirtyChange,
     onSaveStateChange,
+    fontSize = 18,
+    lineHeight = 32,
+    fontFamily = "'Crimson Pro', 'Georgia', 'Cambria', serif",
+    layoutMode = 'default',
+    textCase = 'default',
     onNewFile,
     onAddToChat,
     theme = 'sepia',
@@ -172,6 +182,15 @@ const TextEditor = forwardRef(function TextEditor(
     onDirtyChange?.(hasChanges);
   }, [hasChanges, onDirtyChange]);
 
+  useEffect(() => {
+    if (!editorRef.current) return;
+    editorRef.current.updateOptions({
+      fontSize,
+      lineHeight,
+      fontFamily
+    });
+  }, [fontSize, lineHeight, fontFamily]);
+
   // Apply theme changes to Monaco
   useEffect(() => {
     if (monacoRef.current && editorRef.current) {
@@ -206,9 +225,9 @@ const TextEditor = forwardRef(function TextEditor(
     monaco.editor.setTheme(themeName);
 
     editor.updateOptions({
-      fontSize: 18,
-      lineHeight: 32,
-      fontFamily: "'Crimson Pro', 'Georgia', 'Cambria', serif",
+      fontSize,
+      lineHeight,
+      fontFamily,
       minimap: { enabled: false },
       lineNumbers: 'off',
       glyphMargin: false,
@@ -412,6 +431,24 @@ const TextEditor = forwardRef(function TextEditor(
     editorRef.current?.focus();
   }, [rejectSuggestion, clearInlineSuggestion]);
 
+  const editorShellStyle =
+    layoutMode === 'center'
+      ? { maxWidth: '42rem', marginLeft: 'auto', marginRight: 'auto', textAlign: 'center' as const }
+      : layoutMode === 'left-margin'
+        ? { maxWidth: '44rem', marginLeft: '0', marginRight: 'auto', paddingRight: '3rem', textAlign: 'left' as const }
+        : layoutMode === 'right-margin'
+          ? { maxWidth: '44rem', marginLeft: 'auto', marginRight: '0', paddingLeft: '3rem', textAlign: 'right' as const }
+          : { maxWidth: '48rem', marginLeft: 'auto', marginRight: 'auto', textAlign: 'left' as const };
+
+  const editorTextCaseStyle =
+    textCase === 'capitalize'
+      ? 'capitalize'
+      : textCase === 'uppercase'
+        ? 'uppercase'
+        : textCase === 'lowercase'
+          ? 'lowercase'
+          : 'none';
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); if (onSave && hasChanges) handleSave('manual'); }
@@ -463,8 +500,8 @@ const TextEditor = forwardRef(function TextEditor(
   return (
     <div className="flex-1 flex flex-col overflow-hidden relative">
       {/* Editor — centered like the reference */}
-      <div className="flex-1 overflow-hidden flex justify-center">
-        <div className="w-full max-w-3xl">
+      <div className={`flex-1 overflow-hidden flex ${layoutMode === 'left-margin' ? 'justify-start' : layoutMode === 'right-margin' ? 'justify-end' : 'justify-center'}`}>
+        <div className="w-full" style={{ ...editorShellStyle, textTransform: editorTextCaseStyle }}>
           <MonacoEditor
             height="100%"
             defaultLanguage="markdown"
@@ -473,9 +510,9 @@ const TextEditor = forwardRef(function TextEditor(
             onMount={handleEditorDidMount}
             theme={`cowrite-${theme}`}
             options={{
-              fontSize: 18,
-              lineHeight: 32,
-              fontFamily: "'Crimson Pro', 'Georgia', 'Cambria', serif",
+              fontSize,
+              lineHeight,
+              fontFamily,
               minimap: { enabled: false },
               lineNumbers: 'off',
               glyphMargin: false,
