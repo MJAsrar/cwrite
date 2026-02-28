@@ -44,20 +44,12 @@ interface VSCodeWorkspaceProps {
 
 type ThemeKey = 'sepia' | 'dark' | 'light';
 type TypographyPresetKey = 'serif' | 'sans' | 'mono';
-type TypographyLayoutKey = 'default' | 'center' | 'left-margin' | 'right-margin';
 type TypographyCaseKey = 'default' | 'capitalize' | 'uppercase' | 'lowercase';
 
 const TYPOGRAPHY_PRESETS: Record<TypographyPresetKey, { label: string; fontFamily: string }> = {
   serif: { label: 'Serif', fontFamily: "'Crimson Pro', 'Georgia', 'Cambria', serif" },
   sans: { label: 'Sans', fontFamily: "'Inter', 'system-ui', sans-serif" },
   mono: { label: 'Mono', fontFamily: "'JetBrains Mono', 'Consolas', 'Monaco', monospace" }
-};
-
-const TYPOGRAPHY_LAYOUTS: Record<TypographyLayoutKey, { label: string }> = {
-  default: { label: 'Default' },
-  center: { label: 'Centered' },
-  'left-margin': { label: 'Left Margined' },
-  'right-margin': { label: 'Right Margined' }
 };
 
 const TYPOGRAPHY_CASES: Record<TypographyCaseKey, { label: string }> = {
@@ -128,10 +120,11 @@ export default function VSCodeWorkspace({
   const [onlinePhase, setOnlinePhase] = useState<'label' | 'transition' | 'dot'>('label');
   const [showTypographyMenu, setShowTypographyMenu] = useState(false);
   const [typographyPreset, setTypographyPreset] = useState<TypographyPresetKey>('serif');
-  const [typographyLayout, setTypographyLayout] = useState<TypographyLayoutKey>('default');
+  const [selectionTypographyPreset, setSelectionTypographyPreset] = useState<TypographyPresetKey>('serif');
   const [typographyCase, setTypographyCase] = useState<TypographyCaseKey>('default');
   const [typographyFontSize, setTypographyFontSize] = useState(18);
-  const [typographyLineHeight, setTypographyLineHeight] = useState(32);
+  const [hasTextSelection, setHasTextSelection] = useState(false);
+  const [selectionFontSize, setSelectionFontSize] = useState(18);
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [pendingDestination, setPendingDestination] = useState<string | null>(null);
@@ -189,16 +182,14 @@ export default function VSCodeWorkspace({
     try {
       const parsed = JSON.parse(stored) as Partial<{
         preset: TypographyPresetKey;
-        layout: TypographyLayoutKey;
+        selectionPreset: TypographyPresetKey;
         textCase: TypographyCaseKey;
         fontSize: number;
-        lineHeight: number;
       }>;
       if (parsed.preset && TYPOGRAPHY_PRESETS[parsed.preset]) setTypographyPreset(parsed.preset);
-      if (parsed.layout && TYPOGRAPHY_LAYOUTS[parsed.layout]) setTypographyLayout(parsed.layout);
+      if (parsed.selectionPreset && TYPOGRAPHY_PRESETS[parsed.selectionPreset]) setSelectionTypographyPreset(parsed.selectionPreset);
       if (parsed.textCase && TYPOGRAPHY_CASES[parsed.textCase]) setTypographyCase(parsed.textCase);
       if (typeof parsed.fontSize === 'number') setTypographyFontSize(parsed.fontSize);
-      if (typeof parsed.lineHeight === 'number') setTypographyLineHeight(parsed.lineHeight);
     } catch {
       // Ignore malformed saved typography preferences.
     }
@@ -210,13 +201,12 @@ export default function VSCodeWorkspace({
       `cowrite-typography:${project.id}`,
       JSON.stringify({
         preset: typographyPreset,
-        layout: typographyLayout,
+        selectionPreset: selectionTypographyPreset,
         textCase: typographyCase,
-        fontSize: typographyFontSize,
-        lineHeight: typographyLineHeight
+        fontSize: typographyFontSize
       })
     );
-  }, [project.id, typographyPreset, typographyLayout, typographyCase, typographyFontSize, typographyLineHeight]);
+  }, [project.id, typographyPreset, selectionTypographyPreset, typographyCase, typographyFontSize]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -453,6 +443,49 @@ export default function VSCodeWorkspace({
     }
   };
 
+  const handleFontSizeDecrease = () => {
+    if (hasTextSelection) {
+      const next = Math.max(14, selectionFontSize - 1);
+      const applied = editorRef.current?.applyFontSizeToSelection?.(next);
+      if (applied) {
+        setSelectionFontSize(next);
+        setNoticeMessage('Font-size of selected text updated.');
+      } else {
+        setNoticeMessage('Select text first to apply typography.');
+      }
+      return;
+    }
+
+    setTypographyFontSize((size: number) => Math.max(14, size - 1));
+  };
+
+  const handleFontSizeIncrease = () => {
+    if (hasTextSelection) {
+      const next = Math.min(28, selectionFontSize + 1);
+      const applied = editorRef.current?.applyFontSizeToSelection?.(next);
+      if (applied) {
+        setSelectionFontSize(next);
+        setNoticeMessage('Font-size of selected text updated.');
+      } else {
+        setNoticeMessage('Select text first to apply typography.');
+      }
+      return;
+    }
+
+    setTypographyFontSize((size: number) => Math.min(28, size + 1));
+  };
+
+  const applySelectedFontFamily = (key: TypographyPresetKey) => {
+    const preset = TYPOGRAPHY_PRESETS[key];
+    const applied = editorRef.current?.applyFontFamilyToSelection?.(preset.fontFamily, key);
+    if (applied) {
+      setSelectionTypographyPreset(key);
+      setNoticeMessage('Font family applied to selected text.');
+    } else {
+      setNoticeMessage('Select text first to apply font family.');
+    }
+  };
+
   const handleTabClick = (tab: 'files' | 'characters' | 'plot' | 'search') => {
     if (tab === 'search') {
       setShowSearchModal(true);
@@ -478,7 +511,6 @@ export default function VSCodeWorkspace({
 
   const genreLabel = (project as any)?.settings?.genre || '';
   const typographyFamily = TYPOGRAPHY_PRESETS[typographyPreset].fontFamily;
-  const typographyLayoutLabel = TYPOGRAPHY_LAYOUTS[typographyLayout].label;
   const typographyCaseLabel = TYPOGRAPHY_CASES[typographyCase].label;
   const toastTone =
     saveState === 'error'
@@ -849,29 +881,6 @@ export default function VSCodeWorkspace({
                               Italic
                             </button>
                           </div>
-                          <p className={`mt-2 text-[10px] ${t.muted}`}>`Capital First` changes only the first letter. `Title Case` changes each word.</p>
-                        </div>
-
-                        <div>
-                          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-2 ${t.muted}`}>Layout</p>
-                          <div className="grid grid-cols-2 gap-2">
-                            {(Object.entries(TYPOGRAPHY_LAYOUTS) as Array<[TypographyLayoutKey, { label: string }]>)
-                              .map(([key, layout]) => (
-                                <button
-                                  key={key}
-                                  onClick={() => setTypographyLayout(key)}
-                                  className={`rounded-md border px-2.5 py-2 text-xs font-medium transition-colors ${
-                                    typographyLayout === key
-                                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                                      : theme === 'dark'
-                                        ? 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700'
-                                        : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
-                                  }`}
-                                >
-                                  {layout.label}
-                                </button>
-                              ))}
-                          </div>
                         </div>
 
                         <div>
@@ -897,7 +906,33 @@ export default function VSCodeWorkspace({
                         </div>
 
                         <div>
-                          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-2 ${t.muted}`}>Font family</p>
+                          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-2 ${t.muted}`}>Selected text font family</p>
+                          <div className="grid grid-cols-3 gap-2">
+                            {(Object.entries(TYPOGRAPHY_PRESETS) as Array<[TypographyPresetKey, { label: string; fontFamily: string }]>)
+                              .map(([key, preset]) => (
+                                <button
+                                  key={`selected-${key}`}
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => applySelectedFontFamily(key)}
+                                  className={`rounded-md border px-2.5 py-2 text-xs font-medium transition-colors ${
+                                    selectionTypographyPreset === key
+                                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                      : theme === 'dark'
+                                        ? 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700'
+                                        : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                                  }`}
+                                >
+                                  <span className="block" style={{ fontFamily: preset.fontFamily }}>
+                                    {preset.label}
+                                  </span>
+                                </button>
+                              ))}
+                          </div>
+                          <p className={`mt-2 text-[10px] ${t.muted}`}>Applies only to the currently selected text.</p>
+                        </div>
+
+                        <div>
+                          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-2 ${t.muted}`}>General text font family</p>
                           <div className="grid grid-cols-3 gap-2">
                             {(Object.entries(TYPOGRAPHY_PRESETS) as Array<[TypographyPresetKey, { label: string; fontFamily: string }]>)
                               .map(([key, preset]) => (
@@ -921,45 +956,24 @@ export default function VSCodeWorkspace({
                         </div>
 
                         <div>
-                          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-2 ${t.muted}`}>Font size</p>
+                          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-2 ${t.muted}`}>
+                            {hasTextSelection ? 'font-size of selected text' : 'font-size of entire file'}
+                          </p>
                           <div className="flex items-center gap-2">
                             <button
-                              onClick={() => setTypographyFontSize(size => Math.max(14, size - 1))}
+                              onClick={handleFontSizeDecrease}
                               className={`h-8 w-8 rounded-md border ${t.hover}`}
                               title="Decrease font size"
                             >
                               <span className="text-base leading-none">−</span>
                             </button>
                             <div className={`flex-1 h-8 rounded-md border px-3 flex items-center justify-center text-sm font-semibold ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-zinc-200' : 'bg-white border-stone-200 text-stone-700'}`}>
-                              {typographyFontSize}px
+                              {hasTextSelection ? selectionFontSize : typographyFontSize}px
                             </div>
                             <button
-                              onClick={() => setTypographyFontSize(size => Math.min(28, size + 1))}
+                              onClick={handleFontSizeIncrease}
                               className={`h-8 w-8 rounded-md border ${t.hover}`}
                               title="Increase font size"
-                            >
-                              <span className="text-base leading-none">+</span>
-                            </button>
-                          </div>
-                        </div>
-
-                        <div>
-                          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-2 ${t.muted}`}>Line spacing</p>
-                          <div className="flex items-center gap-2">
-                            <button
-                              onClick={() => setTypographyLineHeight(height => Math.max(24, height - 2))}
-                              className={`h-8 w-8 rounded-md border ${t.hover}`}
-                              title="Decrease line spacing"
-                            >
-                              <span className="text-base leading-none">−</span>
-                            </button>
-                            <div className={`flex-1 h-8 rounded-md border px-3 flex items-center justify-center text-sm font-semibold ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-zinc-200' : 'bg-white border-stone-200 text-stone-700'}`}>
-                              {typographyLineHeight}
-                            </div>
-                            <button
-                              onClick={() => setTypographyLineHeight(height => Math.min(48, height + 2))}
-                              className={`h-8 w-8 rounded-md border ${t.hover}`}
-                              title="Increase line spacing"
                             >
                               <span className="text-base leading-none">+</span>
                             </button>
@@ -970,10 +984,9 @@ export default function VSCodeWorkspace({
                           <button
                             onClick={() => {
                               setTypographyPreset('serif');
-                              setTypographyLayout('default');
+                              setSelectionTypographyPreset('serif');
                               setTypographyCase('default');
                               setTypographyFontSize(18);
-                              setTypographyLineHeight(32);
                             }}
                             className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
                           >
@@ -1015,10 +1028,14 @@ export default function VSCodeWorkspace({
           }}
           autoSave={autoSaveEnabled}
           fontSize={typographyFontSize}
-          lineHeight={typographyLineHeight}
           fontFamily={typographyFamily}
-          layoutMode={typographyLayout}
           textCase={typographyCase}
+          onSelectionStateChange={(hasSelection) => {
+            setHasTextSelection(hasSelection);
+            if (hasSelection) {
+              setSelectionFontSize(typographyFontSize);
+            }
+          }}
           onNewFile={() => {
             setShowNewFileInput(true);
             setNewFileName('');

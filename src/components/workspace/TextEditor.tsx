@@ -31,6 +31,7 @@ interface TextEditorProps {
   fontFamily?: string;
   layoutMode?: 'default' | 'center' | 'left-margin' | 'right-margin';
   textCase?: 'default' | 'capitalize' | 'uppercase' | 'lowercase';
+  onSelectionStateChange?: (hasSelection: boolean) => void;
   onNewFile?: () => void;
   onAddToChat?: (context: {
     text: string;
@@ -110,6 +111,7 @@ const TextEditor = forwardRef(function TextEditor(
     fontFamily = "'Crimson Pro', 'Georgia', 'Cambria', serif",
     layoutMode = 'default',
     textCase = 'default',
+    onSelectionStateChange,
     onNewFile,
     onAddToChat,
     theme = 'sepia',
@@ -132,6 +134,13 @@ const TextEditor = forwardRef(function TextEditor(
   const suggestionPositionRef = useRef<any>(null);
   const lastNonEmptySelectionRef = useRef<any>(null);
   const styledDecorationsRef = useRef<{ bold: string[]; italic: string[] }>({ bold: [], italic: [] });
+  const selectionTypographyDecorationsRef = useRef<{
+    fontSize: Array<{ id: string; className: string }>;
+    lineHeight: Array<{ id: string; className: string }>;
+    fontFamily: Array<{ id: string; className: string }>;
+  }>({ fontSize: [], lineHeight: [], fontFamily: [] });
+  const dynamicStyleTagRef = useRef<HTMLStyleElement | null>(null);
+  const dynamicStyleClassesRef = useRef<Set<string>>(new Set());
   const draftsRef = useRef<Record<string, { content: string; hasChanges: boolean; filename: string }>>({});
   const previousFileIdRef = useRef<string | undefined>(undefined);
   const latestEditorStateRef = useRef({ content: '', hasChanges: false, filename: 'Untitled.txt' });
@@ -307,8 +316,117 @@ const TextEditor = forwardRef(function TextEditor(
       if (!e.selection.isEmpty()) {
         lastNonEmptySelectionRef.current = e.selection;
       }
+      onSelectionStateChange?.(!e.selection.isEmpty());
     });
   };
+
+  const sameRange = (a: any, b: any) => {
+    return (
+      a.startLineNumber === b.startLineNumber &&
+      a.startColumn === b.startColumn &&
+      a.endLineNumber === b.endLineNumber &&
+      a.endColumn === b.endColumn
+    );
+  };
+
+  const ensureDynamicTypographyClass = useCallback((type: 'fontSize' | 'lineHeight', value: number) => {
+    const prefix = type === 'fontSize' ? 'typography-fs' : 'typography-lh';
+    const className = `${prefix}-${value}`;
+    if (dynamicStyleClassesRef.current.has(className)) {
+      return className;
+    }
+
+    if (typeof document !== 'undefined') {
+      if (!dynamicStyleTagRef.current) {
+        const styleTag = document.createElement('style');
+        styleTag.id = 'cowrite-typography-styles';
+        document.head.appendChild(styleTag);
+        dynamicStyleTagRef.current = styleTag;
+      }
+
+      const rule =
+        type === 'fontSize'
+          ? `.${className} { font-size: ${value}px !important; }`
+          : `.${className} { line-height: ${value}px !important; }`;
+
+      dynamicStyleTagRef.current.appendChild(document.createTextNode(`${rule}\n`));
+      dynamicStyleClassesRef.current.add(className);
+    }
+
+    return className;
+  }, []);
+
+  const ensureDynamicFontFamilyClass = useCallback((fontFamilyValue: string, classSuffix: string) => {
+    const normalizedSuffix = classSuffix.replace(/[^a-zA-Z0-9_-]/g, '-').toLowerCase();
+    const className = `typography-ff-${normalizedSuffix}`;
+    if (dynamicStyleClassesRef.current.has(className)) {
+      return className;
+    }
+
+    if (typeof document !== 'undefined') {
+      if (!dynamicStyleTagRef.current) {
+        const styleTag = document.createElement('style');
+        styleTag.id = 'cowrite-typography-styles';
+        document.head.appendChild(styleTag);
+        dynamicStyleTagRef.current = styleTag;
+      }
+
+      const rule = `.${className} { font-family: ${fontFamilyValue} !important; }`;
+      dynamicStyleTagRef.current.appendChild(document.createTextNode(`${rule}\n`));
+      dynamicStyleClassesRef.current.add(className);
+    }
+
+    return className;
+  }, []);
+
+  const applyInlineClassToSelection = useCallback((
+    type: 'fontSize' | 'lineHeight' | 'fontFamily',
+    className: string
+  ) => {
+    if (!editorRef.current) return false;
+
+    const editor = editorRef.current;
+    const model = editor.getModel();
+    const activeSelection = editor.getSelection();
+    const selection =
+      activeSelection && !activeSelection.isEmpty()
+        ? activeSelection
+        : lastNonEmptySelectionRef.current;
+
+    if (!model || !selection || selection.isEmpty()) return false;
+
+    const existing = selectionTypographyDecorationsRef.current[type];
+    const survivors: Array<{ range: any; className: string }> = [];
+
+    for (const item of existing) {
+      const range = model.getDecorationRange(item.id);
+      if (!range) continue;
+      if (sameRange(range, selection)) continue;
+      survivors.push({ range, className: item.className });
+    }
+
+    const nextDefs = [
+      ...survivors,
+      { range: selection, className }
+    ];
+
+    const oldIds = existing.map((item) => item.id);
+    const newIds = editor.deltaDecorations(
+      oldIds,
+      nextDefs.map((item) => ({
+        range: item.range,
+        options: { inlineClassName: item.className }
+      }))
+    );
+
+    selectionTypographyDecorationsRef.current[type] = newIds.map((id, index) => ({
+      id,
+      className: nextDefs[index].className
+    }));
+
+    editor.focus();
+    return true;
+  }, []);
 
   const handleContentChange = (value: string | undefined) => {
     if (value !== undefined) { setContent(value); setHasChanges(true); }
@@ -484,6 +602,22 @@ const TextEditor = forwardRef(function TextEditor(
       return getPendingDrafts().length > 0;
     },
     applyTypographyToSelection,
+    applyFontSizeToSelection: (value: number) => {
+      const className = ensureDynamicTypographyClass('fontSize', value);
+      return applyInlineClassToSelection('fontSize', className);
+    },
+    applyFontFamilyToSelection: (fontFamilyValue: string, classSuffix: string) => {
+      const className = ensureDynamicFontFamilyClass(fontFamilyValue, classSuffix);
+      return applyInlineClassToSelection('fontFamily', className);
+    },
+    applyLineHeightToSelection: (value: number) => {
+      const className = ensureDynamicTypographyClass('lineHeight', value);
+      return applyInlineClassToSelection('lineHeight', className);
+    },
+    hasTextSelection: () => {
+      const sel = editorRef.current?.getSelection();
+      return !!sel && !sel.isEmpty();
+    },
     getPendingDrafts,
     getEditorState: () => ({
       fileId: file?.id,
@@ -491,7 +625,18 @@ const TextEditor = forwardRef(function TextEditor(
       content,
       hasChanges
     })
-  }), [handleSave, hasChanges, file?.id, filename, content, getPendingDrafts, applyTypographyToSelection]);
+  }), [
+    handleSave,
+    hasChanges,
+    file?.id,
+    filename,
+    content,
+    getPendingDrafts,
+    applyTypographyToSelection,
+    ensureDynamicTypographyClass,
+    ensureDynamicFontFamilyClass,
+    applyInlineClassToSelection
+  ]);
 
   const handleCopilotTrigger = useCallback(async () => {
     if (!editorRef.current) return;
