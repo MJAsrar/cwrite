@@ -131,9 +131,27 @@ class ApiClient {
     // If we have a response with error data, use it
     if (error.response?.data && typeof error.response.data === 'object') {
       const errorData = error.response.data as any;
+      const validationMessage = Array.isArray(errorData.detail)
+        ? errorData.detail
+            .map((item: any) => {
+              if (typeof item === 'string') return item;
+              const path = Array.isArray(item?.loc) ? item.loc.join('.') : 'field';
+              const msg = item?.msg || 'Invalid value';
+              return `${path}: ${msg}`;
+            })
+            .join(' | ')
+        : undefined;
+
+      const derivedMessage =
+        errorData.message ||
+        errorData.detail ||
+        validationMessage ||
+        error.message ||
+        'An error occurred';
+
       return {
         error: errorData.error || 'api_error',
-        message: errorData.message || 'An error occurred',
+        message: derivedMessage,
         timestamp: errorData.timestamp || new Date().toISOString(),
         request_id: errorData.request_id || 'unknown',
         ...errorData,

@@ -130,6 +130,8 @@ const TextEditor = forwardRef(function TextEditor(
   const decorationsRef = useRef<string[]>([]);
   const suggestionTextRef = useRef<string>('');
   const suggestionPositionRef = useRef<any>(null);
+  const lastNonEmptySelectionRef = useRef<any>(null);
+  const styledDecorationsRef = useRef<{ bold: string[]; italic: string[] }>({ bold: [], italic: [] });
   const draftsRef = useRef<Record<string, { content: string; hasChanges: boolean; filename: string }>>({});
   const previousFileIdRef = useRef<string | undefined>(undefined);
   const latestEditorStateRef = useRef({ content: '', hasChanges: false, filename: 'Untitled.txt' });
@@ -176,6 +178,7 @@ const TextEditor = forwardRef(function TextEditor(
     }
 
     previousFileIdRef.current = file?.id;
+    styledDecorationsRef.current = { bold: [], italic: [] };
   }, [file?.id]);
 
   useEffect(() => {
@@ -299,6 +302,12 @@ const TextEditor = forwardRef(function TextEditor(
       setHasChanges(true);
       if (showSuggestion) clearInlineSuggestion();
     });
+
+    editor.onDidChangeCursorSelection((e) => {
+      if (!e.selection.isEmpty()) {
+        lastNonEmptySelectionRef.current = e.selection;
+      }
+    });
   };
 
   const handleContentChange = (value: string | undefined) => {
@@ -361,6 +370,99 @@ const TextEditor = forwardRef(function TextEditor(
     clearSuggestion();
   }, [clearSuggestion]);
 
+  const applyTypographyToSelection = useCallback((
+    action: 'capitalize' | 'uppercase' | 'lowercase' | 'title' | 'bold' | 'italic'
+  ) => {
+    if (!editorRef.current) return false;
+
+    const editor = editorRef.current;
+    const model = editor.getModel();
+    const activeSelection = editor.getSelection();
+    const selection =
+      activeSelection && !activeSelection.isEmpty()
+        ? activeSelection
+        : lastNonEmptySelectionRef.current;
+
+    if (!model || !selection || selection.isEmpty()) return false;
+
+    const toggleSelectionStyle = (style: 'bold' | 'italic') => {
+      const currentStyleIds = styledDecorationsRef.current[style];
+      const matchingId = currentStyleIds.find((id) => {
+        const range = model.getDecorationRange(id);
+        return !!range &&
+          range.startLineNumber === selection.startLineNumber &&
+          range.startColumn === selection.startColumn &&
+          range.endLineNumber === selection.endLineNumber &&
+          range.endColumn === selection.endColumn;
+      });
+
+      if (matchingId) {
+        styledDecorationsRef.current[style] = editor.deltaDecorations([matchingId], []);
+        return true;
+      }
+
+      styledDecorationsRef.current[style] = editor.deltaDecorations(currentStyleIds, [
+        ...currentStyleIds.map((id) => {
+          const range = model.getDecorationRange(id);
+          return range
+            ? {
+                range,
+                options: {
+                  inlineClassName: style === 'bold' ? 'typography-bold-inline' : 'typography-italic-inline'
+                }
+              }
+            : null;
+        }).filter(Boolean) as any,
+        {
+          range: selection,
+          options: {
+            inlineClassName: style === 'bold' ? 'typography-bold-inline' : 'typography-italic-inline'
+          }
+        }
+      ]);
+      return true;
+    };
+
+    if (action === 'bold') {
+      const applied = toggleSelectionStyle('bold');
+      editor.focus();
+      return applied;
+    }
+
+    if (action === 'italic') {
+      const applied = toggleSelectionStyle('italic');
+      editor.focus();
+      return applied;
+    }
+
+    const selectedText = model.getValueInRange(selection);
+    let transformed = selectedText;
+
+    if (action === 'uppercase') {
+      transformed = selectedText.toUpperCase();
+    } else if (action === 'lowercase') {
+      transformed = selectedText.toLowerCase();
+    } else if (action === 'capitalize') {
+      transformed = selectedText
+        .toLowerCase()
+        .replace(/([A-Za-z])/, (c) => c.toUpperCase());
+    } else if (action === 'title') {
+      transformed = selectedText
+        .toLowerCase()
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+    }
+
+    editor.executeEdits('typography-selection', [{
+      range: selection,
+      text: transformed,
+      forceMoveMarkers: true
+    }]);
+
+    setHasChanges(true);
+    editor.focus();
+    return true;
+  }, []);
+
   useImperativeHandle(ref, () => ({
     applyEdit: async (edit: any) => {
       if (!editorRef.current) return;
@@ -381,6 +483,7 @@ const TextEditor = forwardRef(function TextEditor(
     hasPendingDrafts: () => {
       return getPendingDrafts().length > 0;
     },
+    applyTypographyToSelection,
     getPendingDrafts,
     getEditorState: () => ({
       fileId: file?.id,
@@ -388,7 +491,7 @@ const TextEditor = forwardRef(function TextEditor(
       content,
       hasChanges
     })
-  }), [handleSave, hasChanges, file?.id, filename, content, getPendingDrafts]);
+  }), [handleSave, hasChanges, file?.id, filename, content, getPendingDrafts, applyTypographyToSelection]);
 
   const handleCopilotTrigger = useCallback(async () => {
     if (!editorRef.current) return;

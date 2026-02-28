@@ -31,3 +31,12 @@
 .monaco-editor .cursor {
   background-color: #39FF14 !important;
 }
+
+/* Selection typography decorations */
+.typography-bold-inline {
+  font-weight: 700 !important;
+}
+
+.typography-italic-inline {
+  font-style: italic !important;
+}

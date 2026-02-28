@@ -138,6 +138,7 @@ export default function VSCodeWorkspace({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<any>(null);
   const newFileInputRef = useRef<HTMLInputElement>(null);
+  const activeFileIdRef = useRef<string | null>(null);
   const lastOpenFileKey = `cowrite-last-open-file:${project.id}`;
   const router = useRouter();
 
@@ -239,11 +240,15 @@ export default function VSCodeWorkspace({
     const updatedSelectedFile = files.find((f) => f.id === selectedFile.id);
     if (updatedSelectedFile && updatedSelectedFile !== selectedFile) {
       setSelectedFile(updatedSelectedFile);
-    }
-    if (!updatedSelectedFile) {
-      setSelectedFile(null);
+      activeFileIdRef.current = updatedSelectedFile.id;
     }
   }, [files, selectedFile]);
+
+  useEffect(() => {
+    if (selectedFile?.id) {
+      activeFileIdRef.current = selectedFile.id;
+    }
+  }, [selectedFile?.id]);
 
   useEffect(() => {
     if (!saveMessage && !noticeMessage) return;
@@ -342,6 +347,7 @@ export default function VSCodeWorkspace({
     }
 
     setSelectedFile(file);
+    activeFileIdRef.current = file.id;
   };
 
   // Create a new file with starter content so it passes empty-file validation.
@@ -365,6 +371,7 @@ export default function VSCodeWorkspace({
       const newFile = updatedFiles.find(f => f.filename === finalName);
       if (newFile) {
         setSelectedFile(newFile);
+        activeFileIdRef.current = newFile.id;
       }
 
       setNewFileName('');
@@ -401,17 +408,27 @@ export default function VSCodeWorkspace({
 
   const handleFileSave = async (content: string, newFilename?: string) => {
     try {
-      if (selectedFile) {
-        await api.put(`/api/v1/files/${selectedFile.id}`, { text_content: content });
+      const currentEditorState = editorRef.current?.getEditorState?.();
+      const targetFileId = selectedFile?.id || currentEditorState?.fileId || activeFileIdRef.current;
+
+      if (targetFileId) {
+        await api.put(`/api/v1/files/${targetFileId}`, { text_content: content });
         return;
       } else if (newFilename) {
         const blob = new Blob([content], { type: 'text/plain' });
         const file = new File([blob], newFilename, { type: 'text/plain' });
         await onFileUpload([file]);
         await onRefresh();
+      } else {
+        throw new Error('No active file selected to save. Please select a file and try again.');
       }
     } catch (error: any) {
-      throw new Error(error?.response?.data?.detail || error?.message || 'Failed to save');
+      throw new Error(
+        error?.response?.data?.detail ||
+        error?.detail ||
+        error?.message ||
+        'Failed to save'
+      );
     }
   };
 
@@ -422,6 +439,18 @@ export default function VSCodeWorkspace({
       localStorage.setItem('cowrite-autosave-enabled', String(next));
     }
     setNoticeMessage(next ? 'Auto Save enabled' : 'Auto Save disabled');
+  };
+
+  const applySelectionTypography = (
+    action: 'capitalize' | 'uppercase' | 'lowercase' | 'title' | 'bold' | 'italic',
+    label: string
+  ) => {
+    const applied = editorRef.current?.applyTypographyToSelection?.(action);
+    if (applied) {
+      setNoticeMessage(`${label} applied to selected text.`);
+    } else {
+      setNoticeMessage('Select text first to apply typography.');
+    }
   };
 
   const handleTabClick = (tab: 'files' | 'characters' | 'plot' | 'search') => {
@@ -645,7 +674,10 @@ export default function VSCodeWorkspace({
                 }}
                 onFileDelete={async (fileId) => {
                   await onFileDelete(fileId);
-                  if (selectedFile?.id === fileId) setSelectedFile(null);
+                  if (selectedFile?.id === fileId) {
+                    setSelectedFile(null);
+                    activeFileIdRef.current = null;
+                  }
                   await onRefresh();
                 }}
                 onFileUpload={onFileUpload}
@@ -755,7 +787,7 @@ export default function VSCodeWorkspace({
                 {showTypographyMenu && (
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setShowTypographyMenu(false)} />
-                    <div className={`absolute right-0 top-full mt-2 z-40 w-72 rounded-xl border shadow-xl p-3 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : theme === 'light' ? 'bg-white border-gray-200' : 'bg-[#FFF9EF] border-stone-200'}`}>
+                    <div className={`absolute right-0 top-full mt-2 z-40 w-[26rem] max-h-[70vh] rounded-xl border shadow-xl p-3 overflow-hidden ${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : theme === 'light' ? 'bg-white border-gray-200' : 'bg-[#FFF9EF] border-stone-200'}`}>
                       <div className="flex items-center justify-between mb-3">
                         <div>
                           <p className={`text-xs font-semibold uppercase tracking-wider ${t.muted}`}>Typography</p>
@@ -770,7 +802,56 @@ export default function VSCodeWorkspace({
                         </button>
                       </div>
 
-                      <div className="space-y-3">
+                      <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                        <div>
+                          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-2 ${t.muted}`}>Selected text</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => applySelectionTypography('capitalize', 'Capital first')}
+                              className="rounded-md border px-2.5 py-2 text-xs font-medium transition-colors bg-white text-stone-700 border-stone-200 hover:bg-stone-50"
+                            >
+                              Capital First
+                            </button>
+                            <button
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => applySelectionTypography('uppercase', 'Uppercase')}
+                              className="rounded-md border px-2.5 py-2 text-xs font-medium transition-colors bg-white text-stone-700 border-stone-200 hover:bg-stone-50"
+                            >
+                              UPPERCASE
+                            </button>
+                            <button
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => applySelectionTypography('lowercase', 'Lowercase')}
+                              className="rounded-md border px-2.5 py-2 text-xs font-medium transition-colors bg-white text-stone-700 border-stone-200 hover:bg-stone-50"
+                            >
+                              lowercase
+                            </button>
+                            <button
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => applySelectionTypography('title', 'Title case')}
+                              className="rounded-md border px-2.5 py-2 text-xs font-medium transition-colors bg-white text-stone-700 border-stone-200 hover:bg-stone-50"
+                            >
+                              Title Case
+                            </button>
+                            <button
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => applySelectionTypography('bold', 'Bold style')}
+                              className="rounded-md border px-2.5 py-2 text-xs font-medium transition-colors bg-white text-stone-700 border-stone-200 hover:bg-stone-50"
+                            >
+                              Bold
+                            </button>
+                            <button
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => applySelectionTypography('italic', 'Italic style')}
+                              className="rounded-md border px-2.5 py-2 text-xs font-medium transition-colors bg-white text-stone-700 border-stone-200 hover:bg-stone-50"
+                            >
+                              Italic
+                            </button>
+                          </div>
+                          <p className={`mt-2 text-[10px] ${t.muted}`}>`Capital First` changes only the first letter. `Title Case` changes each word.</p>
+                        </div>
+
                         <div>
                           <p className={`text-[11px] font-semibold uppercase tracking-wider mb-2 ${t.muted}`}>Layout</p>
                           <div className="grid grid-cols-2 gap-2">
@@ -779,7 +860,7 @@ export default function VSCodeWorkspace({
                                 <button
                                   key={key}
                                   onClick={() => setTypographyLayout(key)}
-                                  className={`rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors ${
+                                  className={`rounded-md border px-2.5 py-2 text-xs font-medium transition-colors ${
                                     typographyLayout === key
                                       ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
                                       : theme === 'dark'
@@ -801,7 +882,7 @@ export default function VSCodeWorkspace({
                                 <button
                                   key={key}
                                   onClick={() => setTypographyCase(key)}
-                                  className={`rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors ${
+                                  className={`rounded-md border px-2.5 py-2 text-xs font-medium transition-colors ${
                                     typographyCase === key
                                       ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
                                       : theme === 'dark'
@@ -823,7 +904,7 @@ export default function VSCodeWorkspace({
                                 <button
                                   key={key}
                                   onClick={() => setTypographyPreset(key)}
-                                  className={`rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors ${
+                                  className={`rounded-md border px-2.5 py-2 text-xs font-medium transition-colors ${
                                     typographyPreset === key
                                       ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
                                       : theme === 'dark'
