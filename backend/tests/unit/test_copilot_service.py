@@ -43,34 +43,21 @@ class TestCopilotService:
     async def test_gather_story_context(self):
         """Test story context gathering"""
         from app.services.copilot_service import CopilotService
-        from app.models.entity import Entity
         
         service = CopilotService()
         
-        # Mock entity repository with proper Entity model
-        from app.models.entity import EntityType, EntityMention
-        from datetime import datetime
-        from bson import ObjectId
-        
-        file_id = str(ObjectId())
-        mock_entity = Entity(
-            project_id="proj123",
-            name="Alice",
-            type=EntityType.CHARACTER,
-            aliases=["Al"],
-            attributes={"role": "protagonist"},
-            confidence_score=0.9,
-            mention_count=5,
-            first_mentioned=EntityMention(file_id=file_id, position=0, context="", confidence=0.9),
-            last_mentioned=EntityMention(file_id=file_id, position=100, context="", confidence=0.9),
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
-        )
+        # Mock entity repository using the same shape CopilotService expects
+        project_id = "proj123"
+        mock_entity = Mock()
+        mock_entity.name = "Alice"
+        mock_entity.type = "CHARACTER"
+        mock_entity.aliases = ["Al"]
+        mock_entity.attributes = {"role": "protagonist"}
         
         service.entity_repo.get_by_project = AsyncMock(return_value=[mock_entity])
         
         context = await service._gather_story_context(
-            project_id="proj123",
+            project_id=project_id,
             text_sample="Alice walked through the forest."
         )
         
@@ -154,6 +141,90 @@ class TestCopilotService:
         assert "Forest" in prompt
         assert "continue" in prompt.lower()
         assert "third person" in prompt.lower()
+
+    @pytest.mark.asyncio
+    async def test_build_prompt_includes_dialogue_tone_and_character_profile_details(self):
+        """Test prompt includes inferred tone and character profile attributes for dialogue generation."""
+        from app.services.copilot_service import CopilotService
+
+        service = CopilotService()
+
+        story_context = {
+            "characters": [{
+                "name": "Mara",
+                "attributes": {
+                    "role": "protagonist",
+                    "temperament": "witty",
+                    "speech_pattern": "short, sharp lines"
+                }
+            }],
+            "location": "Tavern",
+            "themes": ["Trust", "Betrayal"],
+            "style_characteristics": {
+                "pov": "third_person",
+                "tense": "past",
+                "formality": "informal",
+                "avg_sentence_length": 10
+            }
+        }
+
+        prompt = await service._build_prompt(
+            suggestion_type="continue",
+            text_before='Mara leaned in. "Tell me the truth," she said.',
+            text_after="",
+            story_context=story_context
+        )
+
+        assert "Characters present: Mara" in prompt
+        assert "witty" in prompt
+        assert "short, sharp lines" in prompt
+        assert "Tone: informal" in prompt
+        assert "Maintain character consistency and voice" in prompt
+
+    def test_analyze_writing_style_detects_informal_tone_from_contractions(self):
+        """Test style analysis marks dialogue-heavy contraction usage as informal tone."""
+        from app.services.copilot_service import CopilotService
+
+        service = CopilotService()
+        text = "\"I can't stay,\" she said. \"We're done, and I won't explain.\""
+
+        style = service._analyze_writing_style(text)
+
+        assert style["formality"] == "informal"
+        assert "tense" in style
+        assert "pov" in style
+
+    @pytest.mark.asyncio
+    async def test_gather_story_context_keeps_only_mentioned_characters_for_dialogue(self):
+        """Test context gathering only includes characters mentioned in current dialogue context."""
+        from app.services.copilot_service import CopilotService
+
+        service = CopilotService()
+
+        project_id = "proj123"
+        mara = Mock()
+        mara.name = "Mara"
+        mara.type = "CHARACTER"
+        mara.aliases = ["M"]
+        mara.attributes = {"role": "protagonist", "temperament": "witty"}
+
+        jon = Mock()
+        jon.name = "Jon"
+        jon.type = "CHARACTER"
+        jon.aliases = []
+        jon.attributes = {"role": "antagonist"}
+
+        service.entity_repo.get_by_project = AsyncMock(return_value=[mara, jon])
+
+        context = await service._gather_story_context(
+            project_id=project_id,
+            text_sample='Mara whispered, "Keep your voice down."'
+        )
+
+        names = [c["name"] for c in context.get("characters", [])]
+        assert "Mara" in names
+        assert "Jon" not in names
+        assert context["characters"][0]["attributes"]["temperament"] == "witty"
     
     @pytest.mark.asyncio
     async def test_generate_suggestion_error_handling(self):
