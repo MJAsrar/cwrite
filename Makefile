@@ -29,7 +29,7 @@ dev:
 	@echo "Starting development servers..."
 	@echo "Backend will start on http://localhost:8000"
 	@echo "Frontend will start on http://localhost:3000"
-	@make -j2 dev-backend dev-frontend
+	npx concurrently "npm run dev" "cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000"
 
 dev-backend:
 	cd backend && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000

@@ -244,6 +244,50 @@ class TestCopilotService:
                 text_after="",
                 cursor_position=4
             )
+
+    @pytest.mark.asyncio
+    async def test_build_prompt_complete_mode(self):
+        """Test prompt building for complete suggestion mode"""
+        from app.services.copilot_service import CopilotService
+
+        service = CopilotService()
+        prompt = await service._build_prompt(
+            suggestion_type="complete",
+            text_before='"I know what you did," Mara whispered',
+            text_after="",
+            story_context={
+                "characters": [{"name": "Mara", "attributes": {"role": "protagonist"}}],
+                "location": "Archive",
+                "style_characteristics": {
+                    "pov": "third_person",
+                    "tense": "past",
+                    "formality": "informal",
+                    "avg_sentence_length": 11
+                }
+            }
+        )
+
+        assert "complete a paragraph" in prompt.lower()
+        assert "Mara" in prompt
+        assert "Current location: Archive" in prompt
+        assert "Tone: informal" in prompt
+
+    @pytest.mark.asyncio
+    async def test_build_prompt_rewrite_mode(self):
+        """Test prompt building for rewrite suggestion mode"""
+        from app.services.copilot_service import CopilotService
+
+        service = CopilotService()
+        prompt = await service._build_prompt(
+            suggestion_type="rewrite",
+            text_before='"Leave now," she said.',
+            text_after="",
+            story_context={}
+        )
+
+        assert "rewrite this text" in prompt.lower()
+        assert "maintaining the author's style and voice" in prompt.lower()
+        assert "more vivid and descriptive" in prompt.lower()
     
     def test_extract_last_sentence(self):
         """Test extracting last sentence"""
