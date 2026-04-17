@@ -92,8 +92,7 @@ class FileService:
                     f"({self.max_file_size} bytes)"
                 )
             
-            if file_size == 0:
-                raise FileValidationError("File is empty")
+            # Allow empty files (e.g., newly created blank documents)
             
             # Validate MIME type
             content_type = await self._validate_mime_type(file, file_extension)

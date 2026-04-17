@@ -339,9 +339,18 @@ const TextEditor = forwardRef(function TextEditor(
           <h2 className="text-2xl mb-3 font-serif italic opacity-70">
             What are we writing today?
           </h2>
-          <p className="text-sm opacity-40 mb-8">
-            Open a file from the sidebar or upload a new manuscript
+          <p className="text-sm opacity-40 mb-6">
+            Select a file from the sidebar, or create a new one to start writing
           </p>
+          {onNewFile && (
+            <button
+              onClick={onNewFile}
+              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 transition-colors mb-6 shadow-lg shadow-indigo-500/20"
+            >
+              <FileText className="w-4 h-4" />
+              Create New File
+            </button>
+          )}
           <div className="flex items-center justify-center gap-6 text-xs opacity-30">
             <span>Ctrl+S save</span>
             <span>·</span>

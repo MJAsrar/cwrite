@@ -19,7 +19,9 @@ import {
   Type,
   Sparkles,
   Loader2,
-  MoreVertical
+  MoreVertical,
+  FilePlus,
+  X
 } from 'lucide-react';
 import Link from 'next/link';
 import TextEditor from './TextEditor';
@@ -92,8 +94,13 @@ export default function VSCodeWorkspace({
   const [showRelationshipsModal, setShowRelationshipsModal] = useState(false);
   const [chatContext, setChatContext] = useState<any>(null);
   const [focusMode, setFocusMode] = useState(false);
+  const [showNewFileInput, setShowNewFileInput] = useState(false);
+  const [newFileName, setNewFileName] = useState('');
+  const [isCreatingFile, setIsCreatingFile] = useState(false);
+  const [showPlusMenu, setShowPlusMenu] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<any>(null);
+  const newFileInputRef = useRef<HTMLInputElement>(null);
 
   const t = THEME_CLASSES[theme];
 
@@ -129,6 +136,45 @@ export default function VSCodeWorkspace({
   }, [files, onRefresh]);
 
   const handleFileSelect = (file: ProjectFile) => setSelectedFile(file);
+
+  // Create a new blank file
+  const handleCreateNewFile = async () => {
+    const filename = newFileName.trim();
+    if (!filename) return;
+
+    // Ensure it has an extension
+    const finalName = filename.includes('.') ? filename : `${filename}.txt`;
+
+    setIsCreatingFile(true);
+    try {
+      const blob = new Blob([''], { type: 'text/plain' });
+      const file = new window.File([blob], finalName, { type: 'text/plain' });
+      await onFileUpload([file]);
+      await onRefresh();
+
+      // After refresh, find and select the newly created file
+      // We need to re-fetch since onRefresh updates parent state
+      const updatedFiles = await api.files.list(project.id) as ProjectFile[];
+      const newFile = updatedFiles.find(f => f.filename === finalName);
+      if (newFile) {
+        setSelectedFile(newFile);
+      }
+
+      setNewFileName('');
+      setShowNewFileInput(false);
+    } catch (err: any) {
+      alert(`Failed to create file: ${err.message || 'Unknown error'}`);
+    } finally {
+      setIsCreatingFile(false);
+    }
+  };
+
+  // Focus the input when showing new file input
+  useEffect(() => {
+    if (showNewFileInput && newFileInputRef.current) {
+      newFileInputRef.current.focus();
+    }
+  }, [showNewFileInput]);
 
   const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = e.target.files;
@@ -252,14 +298,87 @@ export default function VSCodeWorkspace({
             <h2 className={`font-semibold text-sm tracking-wider uppercase ${t.muted}`}>
               Documents
             </h2>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className={`p-1.5 rounded-lg transition-colors ${t.hover}`}
-              title="Upload file"
-            >
-              <Plus size={16} />
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowPlusMenu(!showPlusMenu)}
+                className={`p-1.5 rounded-lg transition-colors ${t.hover}`}
+                title="Add file"
+              >
+                <Plus size={16} />
+              </button>
+              {showPlusMenu && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setShowPlusMenu(false)} />
+                  <div className={`absolute right-0 top-full mt-1 w-44 rounded-xl shadow-lg border z-40 py-1 ${
+                    theme === 'dark' ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-stone-200'
+                  }`}>
+                    <button
+                      onClick={() => {
+                        setShowPlusMenu(false);
+                        setShowNewFileInput(true);
+                        setNewFileName('');
+                      }}
+                      className={`flex items-center w-full px-3 py-2 text-sm gap-2 transition-colors ${
+                        theme === 'dark' ? 'text-zinc-200 hover:bg-zinc-700' : 'text-stone-700 hover:bg-stone-100'
+                      }`}
+                    >
+                      <FilePlus size={15} />
+                      New File
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowPlusMenu(false);
+                        fileInputRef.current?.click();
+                      }}
+                      className={`flex items-center w-full px-3 py-2 text-sm gap-2 transition-colors ${
+                        theme === 'dark' ? 'text-zinc-200 hover:bg-zinc-700' : 'text-stone-700 hover:bg-stone-100'
+                      }`}
+                    >
+                      <Upload size={15} />
+                      Upload File
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
+
+          {/* New File Inline Input */}
+          {showNewFileInput && (
+            <div className={`mx-3 mb-3 p-2 rounded-lg border ${
+              theme === 'dark' ? 'bg-zinc-800 border-zinc-700' : 'bg-stone-50 border-stone-200'
+            }`}>
+              <div className="flex items-center gap-2">
+                <FilePlus size={14} className={t.muted} />
+                <input
+                  ref={newFileInputRef}
+                  type="text"
+                  value={newFileName}
+                  onChange={(e) => setNewFileName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreateNewFile();
+                    if (e.key === 'Escape') { setShowNewFileInput(false); setNewFileName(''); }
+                  }}
+                  placeholder="chapter-1.txt"
+                  className={`flex-1 text-sm bg-transparent outline-none placeholder:opacity-40 ${
+                    theme === 'dark' ? 'text-zinc-200' : 'text-stone-800'
+                  }`}
+                  disabled={isCreatingFile}
+                />
+                {isCreatingFile ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <button
+                    onClick={() => { setShowNewFileInput(false); setNewFileName(''); }}
+                    className={`p-0.5 rounded ${t.hover}`}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+              <p className={`text-[10px] mt-1.5 ${t.muted}`}>Press Enter to create · Esc to cancel</p>
+            </div>
+          )}
 
           <input
             ref={fileInputRef}
@@ -271,21 +390,36 @@ export default function VSCodeWorkspace({
           />
 
           <div className="flex-1 overflow-y-auto px-3 custom-scrollbar">
-            <EnhancedFileTree
-              files={files}
-              selectedFileId={selectedFile?.id}
-              onFileSelect={(fileId) => {
-                const file = files.find(f => f.id === fileId);
-                if (file) handleFileSelect(file);
-              }}
-              onFileDelete={async (fileId) => {
-                await onFileDelete(fileId);
-                if (selectedFile?.id === fileId) setSelectedFile(null);
-                await onRefresh();
-              }}
-              onFileUpload={onFileUpload}
-              theme={theme}
-            />
+            {files.length === 0 && !showNewFileInput ? (
+              <div className="text-center py-10 px-4">
+                <FileText className={`w-10 h-10 mx-auto mb-3 opacity-20`} />
+                <p className={`text-sm font-medium mb-1 opacity-60`}>No files yet</p>
+                <p className={`text-xs mb-4 opacity-40`}>Create a new file to start writing</p>
+                <button
+                  onClick={() => { setShowNewFileInput(true); setNewFileName(''); }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+                >
+                  <FilePlus size={13} />
+                  Create New File
+                </button>
+              </div>
+            ) : (
+              <EnhancedFileTree
+                files={files}
+                selectedFileId={selectedFile?.id}
+                onFileSelect={(fileId) => {
+                  const file = files.find(f => f.id === fileId);
+                  if (file) handleFileSelect(file);
+                }}
+                onFileDelete={async (fileId) => {
+                  await onFileDelete(fileId);
+                  if (selectedFile?.id === fileId) setSelectedFile(null);
+                  await onRefresh();
+                }}
+                onFileUpload={onFileUpload}
+                theme={theme}
+              />
+            )}
           </div>
         </div>
       )}
@@ -344,6 +478,11 @@ export default function VSCodeWorkspace({
           file={selectedFile || undefined}
           projectId={project.id}
           onSave={handleFileSave}
+          onNewFile={() => {
+            setShowNewFileInput(true);
+            setNewFileName('');
+            if (!isSidebarOpen) setIsSidebarOpen(true);
+          }}
           onAddToChat={(context) => {
             setChatContext(context);
             if (!isAiOpen) setIsAiOpen(true);
