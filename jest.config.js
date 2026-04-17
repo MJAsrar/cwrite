@@ -9,8 +9,7 @@ const createJestConfig = nextJest({
 const customJestConfig = {
   setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   moduleNameMapper: {
-    // Handle module aliases (this will be automatically configured for you based on your tsconfig.json paths)
-    '^@/(.*)$': '<rootDir>/src/$1',
+    '^@/(.*)': '<rootDir>/src/$1',
   },
   testEnvironment: 'jest-environment-jsdom',
   testMatch: [
@@ -22,6 +21,12 @@ const customJestConfig = {
     '!src/**/*.d.ts',
     '!src/app/layout.tsx',
     '!src/app/globals.css',
+  ],
+  // Transform ESM-only packages that Jest can't handle as CommonJS.
+  // next/jest excludes all of node_modules by default except geist;
+  // extend that allowlist with other ESM-only packages used in the project.
+  transformIgnorePatterns: [
+    '/node_modules/(?!(geist|lucide-react|framer-motion|@radix-ui)/)',
   ],
 }
 
