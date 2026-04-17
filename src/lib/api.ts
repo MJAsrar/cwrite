@@ -321,12 +321,10 @@ export const api = {
   genres: {
     list: () => apiClient.get('/api/v1/genres', undefined, { maxRetries: 3 }),
   },
-<<<<<<< HEAD
+
 
   // Research endpoints (web search + AI)
   research: {
     query: (data: any) => apiClient.post('/api/v1/chat/research', data, { maxRetries: 1 }),
   },
-=======
->>>>>>> db917cb (Updated stuff)
 };

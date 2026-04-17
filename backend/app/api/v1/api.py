@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Request
 
-from .endpoints import auth, files, search, relationships, indexing, projects, scenes, position, chat, copilot, genres
+from .endpoints import auth, files, search, relationships, indexing, projects, scenes, position, chat, copilot, genres, research
 
 api_router = APIRouter()
 
