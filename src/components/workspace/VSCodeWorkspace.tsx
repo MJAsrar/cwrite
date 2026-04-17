@@ -14,14 +14,14 @@ import {
   Plus,
   Upload,
   ChevronLeft,
-  ChevronRight,
   Maximize2,
   Type,
   Sparkles,
   Loader2,
-  MoreVertical,
   FilePlus,
-  X
+  X,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
 import Link from 'next/link';
 import TextEditor from './TextEditor';
@@ -98,6 +98,11 @@ export default function VSCodeWorkspace({
   const [newFileName, setNewFileName] = useState('');
   const [isCreatingFile, setIsCreatingFile] = useState(false);
   const [showPlusMenu, setShowPlusMenu] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(false);
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveMessage, setSaveMessage] = useState<string>('');
+  const [noticeMessage, setNoticeMessage] = useState<string>('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<any>(null);
   const newFileInputRef = useRef<HTMLInputElement>(null);
@@ -135,7 +140,39 @@ export default function VSCodeWorkspace({
     }
   }, [files, onRefresh]);
 
-  const handleFileSelect = (file: ProjectFile) => setSelectedFile(file);
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = localStorage.getItem('cowrite-autosave-enabled');
+    setAutoSaveEnabled(stored === 'true');
+  }, []);
+
+  useEffect(() => {
+    if (!saveMessage && !noticeMessage) return;
+    const timer = window.setTimeout(() => {
+      setSaveMessage('');
+      setNoticeMessage('');
+      if (saveState !== 'saving') {
+        setSaveState('idle');
+      }
+    }, 2800);
+    return () => window.clearTimeout(timer);
+  }, [saveMessage, noticeMessage, saveState]);
+
+
+  const handleFileSelect = async (file: ProjectFile) => {
+    if (selectedFile?.id === file.id) return;
+
+    const snapshot = editorRef.current?.getEditorState?.();
+    if (snapshot?.hasChanges) {
+      if (autoSaveEnabled) {
+        await editorRef.current?.saveCurrentFile?.();
+      } else {
+        setNoticeMessage(`Unsaved changes in ${snapshot.filename} were kept locally.`);
+      }
+    }
+
+    setSelectedFile(file);
+  };
 
   // Create a new file with starter content so it passes empty-file validation.
   const handleCreateNewFile = async () => {
@@ -196,7 +233,6 @@ export default function VSCodeWorkspace({
     try {
       if (selectedFile) {
         await api.put(`/api/v1/files/${selectedFile.id}`, { text_content: content });
-        alert('File saved successfully!');
         await onRefresh();
       } else if (newFilename) {
         const blob = new Blob([content], { type: 'text/plain' });
@@ -205,8 +241,17 @@ export default function VSCodeWorkspace({
         await onRefresh();
       }
     } catch (error: any) {
-      alert(error?.response?.data?.detail || error?.message || 'Failed to save');
+      throw new Error(error?.response?.data?.detail || error?.message || 'Failed to save');
     }
+  };
+
+  const handleAutoSaveToggle = () => {
+    const next = !autoSaveEnabled;
+    setAutoSaveEnabled(next);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cowrite-autosave-enabled', String(next));
+    }
+    setNoticeMessage(next ? 'Auto Save enabled' : 'Auto Save disabled');
   };
 
   const handleTabClick = (tab: 'files' | 'characters' | 'plot' | 'search') => {
@@ -445,10 +490,44 @@ export default function VSCodeWorkspace({
                 <span className="font-semibold text-sm">
                   {selectedFile?.filename || 'No file selected'}
                 </span>
+                {hasUnsavedChanges && (
+                  <span className="text-[11px] text-amber-600 font-semibold">Unsaved changes</span>
+                )}
               </div>
             </div>
 
             <div className="flex items-center space-x-2">
+              <button
+                className={`px-2.5 py-1.5 rounded-md border text-xs font-semibold transition-colors ${
+                  autoSaveEnabled
+                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+                    : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-50'
+                }`}
+                onClick={handleAutoSaveToggle}
+                title="Toggle Auto Save"
+              >
+                Auto Save {autoSaveEnabled ? 'ON' : 'OFF'}
+              </button>
+
+              {saveState === 'saving' && (
+                <div className="px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-600 text-xs font-semibold border border-blue-500/20 flex items-center gap-1.5">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Saving...
+                </div>
+              )}
+              {saveState === 'saved' && (
+                <div className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 text-xs font-semibold border border-emerald-500/20 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Saved
+                </div>
+              )}
+              {saveState === 'error' && (
+                <div className="px-2.5 py-1 rounded-full bg-red-500/10 text-red-600 text-xs font-semibold border border-red-500/20 flex items-center gap-1.5">
+                  <AlertCircle className="w-3 h-3" />
+                  Save failed
+                </div>
+              )}
+
               {files.filter(f => f.processing_status === 'processing').length > 0 && (
                 <div className="px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 text-xs font-bold border border-amber-500/20 flex items-center gap-1.5">
                   <Loader2 className="w-3 h-3 animate-spin" />
@@ -478,6 +557,17 @@ export default function VSCodeWorkspace({
           file={selectedFile || undefined}
           projectId={project.id}
           onSave={handleFileSave}
+          onDirtyChange={setHasUnsavedChanges}
+          onSaveStateChange={(state, message, source) => {
+            if (source === 'auto' && state !== 'error') {
+              return;
+            }
+            setSaveState(state);
+            if (message) {
+              setSaveMessage(message);
+            }
+          }}
+          autoSave={autoSaveEnabled}
           onNewFile={() => {
             setShowNewFileInput(true);
             setNewFileName('');
@@ -491,6 +581,14 @@ export default function VSCodeWorkspace({
           focusMode={focusMode}
           onExitFocus={() => setFocusMode(false)}
         />
+
+        {(saveMessage || noticeMessage) && (
+          <div className="absolute bottom-12 right-6 z-20">
+            <div className="rounded-lg border border-stone-200 bg-white/95 shadow-lg px-3 py-2 text-xs text-stone-700 backdrop-blur-sm">
+              {saveMessage || noticeMessage}
+            </div>
+          </div>
+        )}
       </main>
 
       {/* ═══ THE MUSE — AI SIDEBAR ═══ */}

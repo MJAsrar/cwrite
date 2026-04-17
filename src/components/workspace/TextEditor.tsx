@@ -24,6 +24,8 @@ interface TextEditorProps {
   file?: ProjectFile;
   projectId: string;
   onSave?: (content: string, filename?: string) => Promise<void>;
+  onDirtyChange?: (hasChanges: boolean) => void;
+  onSaveStateChange?: (state: 'idle' | 'saving' | 'saved' | 'error', message?: string, source?: 'manual' | 'auto') => void;
   onNewFile?: () => void;
   onAddToChat?: (context: {
     text: string;
@@ -37,6 +39,7 @@ interface TextEditorProps {
   theme?: 'sepia' | 'dark' | 'light';
   focusMode?: boolean;
   onExitFocus?: () => void;
+  autoSave?: boolean;
 }
 
 const MONACO_THEMES = {
@@ -91,7 +94,19 @@ const MONACO_THEMES = {
 };
 
 const TextEditor = forwardRef(function TextEditor(
-  { file, projectId, onSave, onNewFile, onAddToChat, theme = 'sepia', focusMode = false, onExitFocus }: TextEditorProps,
+  {
+    file,
+    projectId,
+    onSave,
+    onDirtyChange,
+    onSaveStateChange,
+    onNewFile,
+    onAddToChat,
+    theme = 'sepia',
+    focusMode = false,
+    onExitFocus,
+    autoSave = false
+  }: TextEditorProps,
   ref
 ) {
   const [content, setContent] = useState('');
@@ -105,6 +120,9 @@ const TextEditor = forwardRef(function TextEditor(
   const decorationsRef = useRef<string[]>([]);
   const suggestionTextRef = useRef<string>('');
   const suggestionPositionRef = useRef<any>(null);
+  const draftsRef = useRef<Record<string, { content: string; hasChanges: boolean; filename: string }>>({});
+  const previousFileIdRef = useRef<string | undefined>(undefined);
+  const latestEditorStateRef = useRef({ content: '', hasChanges: false, filename: 'Untitled.txt' });
 
   const {
     getSuggestion, acceptSuggestion, rejectSuggestion, clearSuggestion,
@@ -117,16 +135,42 @@ const TextEditor = forwardRef(function TextEditor(
   });
 
   useEffect(() => {
+    latestEditorStateRef.current = { content, hasChanges, filename };
+  }, [content, hasChanges, filename]);
+
+  useEffect(() => {
+    const previousId = previousFileIdRef.current;
+    if (previousId) {
+      draftsRef.current[previousId] = {
+        content: latestEditorStateRef.current.content,
+        hasChanges: latestEditorStateRef.current.hasChanges,
+        filename: latestEditorStateRef.current.filename
+      };
+    }
+
     if (file) {
-      setContent(file.text_content || '');
-      setFilename(file.filename);
-      setHasChanges(false);
+      const draft = draftsRef.current[file.id];
+      if (draft) {
+        setContent(draft.content);
+        setFilename(file.filename);
+        setHasChanges(draft.hasChanges);
+      } else {
+        setContent(file.text_content || '');
+        setFilename(file.filename);
+        setHasChanges(false);
+      }
     } else {
       setContent('');
       setFilename('Untitled.txt');
       setHasChanges(false);
     }
-  }, [file]);
+
+    previousFileIdRef.current = file?.id;
+  }, [file?.id]);
+
+  useEffect(() => {
+    onDirtyChange?.(hasChanges);
+  }, [hasChanges, onDirtyChange]);
 
   // Apply theme changes to Monaco
   useEffect(() => {
@@ -242,13 +286,51 @@ const TextEditor = forwardRef(function TextEditor(
     if (value !== undefined) { setContent(value); setHasChanges(true); }
   };
 
-  const handleSave = useCallback(async () => {
+  const getPendingDrafts = useCallback(() => {
+    const pending = Object.entries(draftsRef.current)
+      .filter(([, draft]) => draft.hasChanges)
+      .map(([fileId, draft]) => ({ fileId, filename: draft.filename, content: draft.content }));
+
+    if (file?.id && hasChanges) {
+      const alreadyIncluded = pending.some((item) => item.fileId === file.id);
+      if (!alreadyIncluded) {
+        pending.push({ fileId: file.id, filename, content });
+      }
+    }
+
+    return pending;
+  }, [file?.id, hasChanges, filename, content]);
+
+  const handleSave = useCallback(async (source: 'manual' | 'auto' = 'manual') => {
     if (!onSave) return;
+    if (source === 'manual') {
+      onSaveStateChange?.('saving', undefined, source);
+    }
     setIsSaving(true);
-    try { await onSave(content, file ? undefined : filename); setHasChanges(false); }
-    catch { alert('Failed to save file.'); }
+    try {
+      await onSave(content, file ? undefined : filename);
+      setHasChanges(false);
+      if (file?.id) {
+        draftsRef.current[file.id] = { content, hasChanges: false, filename: file.filename };
+      }
+      if (source === 'manual') {
+        onSaveStateChange?.('saved', 'All changes saved', source);
+      }
+    }
+    catch (error: any) {
+      onSaveStateChange?.('error', error?.message || 'Failed to save file', source);
+    }
     finally { setIsSaving(false); }
-  }, [onSave, content, file, filename]);
+  }, [onSave, content, file, filename, onSaveStateChange]);
+
+  useEffect(() => {
+    if (!autoSave || !file?.id || !onSave || !hasChanges || isSaving) return;
+    const timer = window.setTimeout(() => {
+      handleSave('auto');
+    }, 1200);
+
+    return () => window.clearTimeout(timer);
+  }, [autoSave, file?.id, onSave, hasChanges, isSaving, handleSave, content]);
 
   const clearInlineSuggestion = useCallback(() => {
     if (editorRef.current && decorationsRef.current.length > 0) {
@@ -271,8 +353,23 @@ const TextEditor = forwardRef(function TextEditor(
       }]);
       setHasChanges(true);
       editorRef.current.focus();
-    }
-  }), []);
+    },
+    saveCurrentFile: async () => {
+      if (hasChanges) {
+        await handleSave('auto');
+      }
+    },
+    hasPendingDrafts: () => {
+      return getPendingDrafts().length > 0;
+    },
+    getPendingDrafts,
+    getEditorState: () => ({
+      fileId: file?.id,
+      filename,
+      content,
+      hasChanges
+    })
+  }), [handleSave, hasChanges, file?.id, filename, content, getPendingDrafts]);
 
   const handleCopilotTrigger = useCallback(async () => {
     if (!editorRef.current) return;
@@ -317,7 +414,7 @@ const TextEditor = forwardRef(function TextEditor(
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); if (onSave && hasChanges) handleSave(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); if (onSave && hasChanges) handleSave('manual'); }
       if ((e.ctrlKey || e.metaKey) && e.key === ' ') { e.preventDefault(); handleCopilotTrigger(); }
       if (e.key === 'Tab' && showSuggestion) { e.preventDefault(); handleAcceptSuggestion(); }
       if (e.key === 'Escape' && showSuggestion) { e.preventDefault(); handleRejectSuggestion(); }
