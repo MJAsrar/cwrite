@@ -35,14 +35,19 @@ type MockAxiosInstance = {
 };
 
 describe('api client retry and error handling', () => {
-  const client = (axios.create as jest.Mock).mock.results[0].value as MockAxiosInstance;
-  const mockGet = client.get as jest.Mock<(...args: any[]) => any>;
-  const mockPost = client.post as jest.Mock<(...args: any[]) => any>;
-  const responseUse = client.interceptors.response.use as jest.Mock<(...args: any[]) => any>;
-  const responseErrorHandler = responseUse.mock.calls[0][1] as (error: any) => Promise<never>;
-  const removeItemSpy = jest.spyOn(Storage.prototype, 'removeItem');
+  let client: MockAxiosInstance;
+  let mockGet: jest.Mock<(...args: any[]) => any>;
+  let mockPost: jest.Mock<(...args: any[]) => any>;
+  let responseErrorHandler: (error: any) => Promise<never>;
+  let removeItemSpy: ReturnType<typeof jest.spyOn>;
 
   beforeEach(() => {
+    client = (axios.create as jest.Mock).mock.results[0].value as MockAxiosInstance;
+    mockGet = client.get as jest.Mock<(...args: any[]) => any>;
+    mockPost = client.post as jest.Mock<(...args: any[]) => any>;
+    const responseUse = client.interceptors.response.use as jest.Mock<(...args: any[]) => any>;
+    responseErrorHandler = responseUse.mock.calls[0][1] as (error: any) => Promise<never>;
+    removeItemSpy = jest.spyOn(Storage.prototype, 'removeItem');
     jest.clearAllMocks();
     jest.spyOn(Math, 'random').mockReturnValue(0);
   });
