@@ -2,6 +2,7 @@ import React from 'react';
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CreateProjectModal from '@/components/dashboard/CreateProjectModal';
+import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 describe('CreateProjectModal', () => {
   beforeEach(() => {
