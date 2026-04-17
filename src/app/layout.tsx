@@ -62,10 +62,8 @@ export default function RootLayout({
                     dangerouslySetInnerHTML={{
                         __html: `
                             try {
-                                const theme = localStorage.getItem('cowrite-theme') || 'system';
-                                const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-                                const resolvedTheme = theme === 'system' ? systemTheme : theme;
-                                document.documentElement.classList.add(resolvedTheme);
+                                document.documentElement.classList.remove('dark');
+                                document.documentElement.classList.add('light');
                             } catch (e) {}
                         `,
                     }}
@@ -73,7 +71,7 @@ export default function RootLayout({
             </head>
             <body className={`${GeistSans.variable} ${GeistMono.variable} ${playfair.variable} ${jakarta.variable} ${crimsonPro.variable} ${inter.variable} antialiased`}>
                 <SkipLink href="#main-content">Skip to main content</SkipLink>
-                <ThemeProvider defaultTheme="system" storageKey="cowrite-theme">
+                <ThemeProvider defaultTheme="light" storageKey="cowrite-theme">
                     <AccessibilityProvider>
                         <ErrorBoundary>
                             {children}

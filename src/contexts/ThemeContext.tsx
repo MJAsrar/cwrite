@@ -33,7 +33,7 @@ interface ThemeProviderProps {
 
 export function ThemeProvider({
   children,
-  defaultTheme = 'system',
+  defaultTheme = 'light',
   storageKey = 'cowrite-theme',
   enableTransitions = true,
 }: ThemeProviderProps) {
@@ -49,8 +49,11 @@ export function ThemeProvider({
     setMounted(true);
     // Load theme from localStorage on mount
     const savedTheme = localStorage.getItem(storageKey) as Theme;
-    if (savedTheme && ['light', 'dark', 'system'].includes(savedTheme)) {
-      setThemeState(savedTheme);
+    if (savedTheme === 'light') {
+      setThemeState('light');
+    } else {
+      setThemeState('light');
+      localStorage.setItem(storageKey, 'light');
     }
   }, [storageKey]);
 
@@ -79,13 +82,7 @@ export function ThemeProvider({
     if (!mounted) return;
 
     const updateResolvedTheme = () => {
-      let resolved: 'light' | 'dark';
-      
-      if (theme === 'system') {
-        resolved = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      } else {
-        resolved = theme;
-      }
+        const resolved: 'light' = 'light';
       
       // Handle smooth transitions
       if (enableTransitions && resolvedTheme !== resolved) {
@@ -124,18 +121,14 @@ export function ThemeProvider({
   }, [theme, mounted, enableTransitions, resolvedTheme, applyThemeToDocument]);
 
   const setTheme = useCallback((newTheme: Theme) => {
-    setThemeState(newTheme);
-    localStorage.setItem(storageKey, newTheme);
+    const normalizedTheme: Theme = 'light';
+    setThemeState(normalizedTheme);
+    localStorage.setItem(storageKey, normalizedTheme);
   }, [storageKey]);
 
   const toggleTheme = useCallback(() => {
-    if (theme === 'system') {
-      const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-      setTheme(systemTheme === 'dark' ? 'light' : 'dark');
-    } else {
-      setTheme(theme === 'light' ? 'dark' : 'light');
-    }
-  }, [theme, setTheme]);
+    setTheme('light');
+  }, [setTheme]);
 
   // Don't render until mounted to prevent hydration mismatch
   if (!mounted) {

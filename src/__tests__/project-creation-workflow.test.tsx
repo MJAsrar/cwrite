@@ -457,7 +457,7 @@ describe('Project Creation Workflow', () => {
   describe('5. Network Error Handling', () => {
     it('should show network error for connection issues', async () => {
       const user = userEvent.setup();
-      const networkError = new Error('Network Error');
+      const networkError = new Error('Network Error') as Error & { code?: string };
       networkError.code = 'NETWORK_ERROR';
       
       const mockOnSubmitNetworkError = jest.fn().mockRejectedValue(networkError);
@@ -485,7 +485,7 @@ describe('Project Creation Workflow', () => {
 
     it('should provide retry functionality for network errors', async () => {
       const user = userEvent.setup();
-      const networkError = new Error('Network Error');
+      const networkError = new Error('Network Error') as Error & { code?: string };
       networkError.code = 'NETWORK_ERROR';
       
       const mockOnSubmitNetworkError = jest.fn()
