@@ -45,7 +45,6 @@ interface TextEditorProps {
   theme?: 'sepia' | 'dark' | 'light';
   focusMode?: boolean;
   onExitFocus?: () => void;
-  autoSave?: boolean;
 }
 
 const MONACO_THEMES = {
@@ -100,24 +99,10 @@ const MONACO_THEMES = {
 };
 
 const TextEditor = forwardRef(function TextEditor(
-  {
-    file,
-    projectId,
-    onSave,
-    onDirtyChange,
-    onSaveStateChange,
-    fontSize = 18,
-    lineHeight = 32,
-    fontFamily = "'Crimson Pro', 'Georgia', 'Cambria', serif",
-    layoutMode = 'default',
-    textCase = 'default',
-    onSelectionStateChange,
-    onNewFile,
-    onAddToChat,
-    theme = 'sepia',
-    focusMode = false,
-    onExitFocus,
-    autoSave = false
+  { file, projectId, onSave, onNewFile, onAddToChat, theme = 'sepia', focusMode = false, onExitFocus,
+    onDirtyChange, onSaveStateChange, onSelectionStateChange,
+    fontSize, lineHeight, fontFamily,
+    layoutMode = 'default', textCase = 'default'
   }: TextEditorProps,
   ref
 ) {
@@ -218,6 +203,21 @@ const TextEditor = forwardRef(function TextEditor(
     }
   }, [theme]);
 
+  // Apply theme changes to Monaco
+  useEffect(() => {
+    if (monacoRef.current && editorRef.current) {
+      const themeConfig = MONACO_THEMES[theme];
+      const themeName = `cowrite-${theme}`;
+      monacoRef.current.editor.defineTheme(themeName, {
+        base: themeConfig.base,
+        inherit: true,
+        rules: [],
+        colors: themeConfig.colors
+      });
+      monacoRef.current.editor.setTheme(themeName);
+    }
+  }, [theme]);
+
   const handleEditorDidMount = (editor: editor.IStandaloneCodeEditor, monaco: any) => {
     editorRef.current = editor;
     monacoRef.current = monaco;
@@ -237,9 +237,9 @@ const TextEditor = forwardRef(function TextEditor(
     monaco.editor.setTheme(themeName);
 
     editor.updateOptions({
-      fontSize,
-      lineHeight,
-      fontFamily,
+      fontSize: 18,
+      lineHeight: 32,
+      fontFamily: "'Crimson Pro', 'Georgia', 'Cambria', serif",
       minimap: { enabled: false },
       lineNumbers: 'off',
       glyphMargin: false,
@@ -310,13 +310,6 @@ const TextEditor = forwardRef(function TextEditor(
       setContent(editor.getValue());
       setHasChanges(true);
       if (showSuggestion) clearInlineSuggestion();
-    });
-
-    editor.onDidChangeCursorSelection((e) => {
-      if (!e.selection.isEmpty()) {
-        lastNonEmptySelectionRef.current = e.selection;
-      }
-      onSelectionStateChange?.(!e.selection.isEmpty());
     });
   };
 
@@ -449,34 +442,11 @@ const TextEditor = forwardRef(function TextEditor(
 
   const handleSave = useCallback(async (source: 'manual' | 'auto' = 'manual') => {
     if (!onSave) return;
-    if (source === 'manual') {
-      onSaveStateChange?.('saving', undefined, source);
-    }
     setIsSaving(true);
-    try {
-      await onSave(content, file ? undefined : filename);
-      setHasChanges(false);
-      if (file?.id) {
-        draftsRef.current[file.id] = { content, hasChanges: false, filename: file.filename };
-      }
-      if (source === 'manual') {
-        onSaveStateChange?.('saved', 'All changes saved', source);
-      }
-    }
-    catch (error: any) {
-      onSaveStateChange?.('error', error?.message || 'Failed to save file', source);
-    }
+    try { await onSave(content, file ? undefined : filename); setHasChanges(false); }
+    catch { alert('Failed to save file.'); }
     finally { setIsSaving(false); }
-  }, [onSave, content, file, filename, onSaveStateChange]);
-
-  useEffect(() => {
-    if (!autoSave || !file?.id || !onSave || !hasChanges || isSaving) return;
-    const timer = window.setTimeout(() => {
-      handleSave('auto');
-    }, 1200);
-
-    return () => window.clearTimeout(timer);
-  }, [autoSave, file?.id, onSave, hasChanges, isSaving, handleSave, content]);
+  }, [onSave, content, file, filename]);
 
   const clearInlineSuggestion = useCallback(() => {
     if (editorRef.current && decorationsRef.current.length > 0) {
@@ -487,99 +457,6 @@ const TextEditor = forwardRef(function TextEditor(
     suggestionTextRef.current = ''; suggestionPositionRef.current = null;
     clearSuggestion();
   }, [clearSuggestion]);
-
-  const applyTypographyToSelection = useCallback((
-    action: 'capitalize' | 'uppercase' | 'lowercase' | 'title' | 'bold' | 'italic'
-  ) => {
-    if (!editorRef.current) return false;
-
-    const editor = editorRef.current;
-    const model = editor.getModel();
-    const activeSelection = editor.getSelection();
-    const selection =
-      activeSelection && !activeSelection.isEmpty()
-        ? activeSelection
-        : lastNonEmptySelectionRef.current;
-
-    if (!model || !selection || selection.isEmpty()) return false;
-
-    const toggleSelectionStyle = (style: 'bold' | 'italic') => {
-      const currentStyleIds = styledDecorationsRef.current[style];
-      const matchingId = currentStyleIds.find((id) => {
-        const range = model.getDecorationRange(id);
-        return !!range &&
-          range.startLineNumber === selection.startLineNumber &&
-          range.startColumn === selection.startColumn &&
-          range.endLineNumber === selection.endLineNumber &&
-          range.endColumn === selection.endColumn;
-      });
-
-      if (matchingId) {
-        styledDecorationsRef.current[style] = editor.deltaDecorations([matchingId], []);
-        return true;
-      }
-
-      styledDecorationsRef.current[style] = editor.deltaDecorations(currentStyleIds, [
-        ...currentStyleIds.map((id) => {
-          const range = model.getDecorationRange(id);
-          return range
-            ? {
-                range,
-                options: {
-                  inlineClassName: style === 'bold' ? 'typography-bold-inline' : 'typography-italic-inline'
-                }
-              }
-            : null;
-        }).filter(Boolean) as any,
-        {
-          range: selection,
-          options: {
-            inlineClassName: style === 'bold' ? 'typography-bold-inline' : 'typography-italic-inline'
-          }
-        }
-      ]);
-      return true;
-    };
-
-    if (action === 'bold') {
-      const applied = toggleSelectionStyle('bold');
-      editor.focus();
-      return applied;
-    }
-
-    if (action === 'italic') {
-      const applied = toggleSelectionStyle('italic');
-      editor.focus();
-      return applied;
-    }
-
-    const selectedText = model.getValueInRange(selection);
-    let transformed = selectedText;
-
-    if (action === 'uppercase') {
-      transformed = selectedText.toUpperCase();
-    } else if (action === 'lowercase') {
-      transformed = selectedText.toLowerCase();
-    } else if (action === 'capitalize') {
-      transformed = selectedText
-        .toLowerCase()
-        .replace(/([A-Za-z])/, (c) => c.toUpperCase());
-    } else if (action === 'title') {
-      transformed = selectedText
-        .toLowerCase()
-        .replace(/\b\w/g, (c) => c.toUpperCase());
-    }
-
-    editor.executeEdits('typography-selection', [{
-      range: selection,
-      text: transformed,
-      forceMoveMarkers: true
-    }]);
-
-    setHasChanges(true);
-    editor.focus();
-    return true;
-  }, []);
 
   useImperativeHandle(ref, () => ({
     applyEdit: async (edit: any) => {
@@ -592,51 +469,8 @@ const TextEditor = forwardRef(function TextEditor(
       }]);
       setHasChanges(true);
       editorRef.current.focus();
-    },
-    saveCurrentFile: async () => {
-      if (hasChanges) {
-        await handleSave('auto');
-      }
-    },
-    hasPendingDrafts: () => {
-      return getPendingDrafts().length > 0;
-    },
-    applyTypographyToSelection,
-    applyFontSizeToSelection: (value: number) => {
-      const className = ensureDynamicTypographyClass('fontSize', value);
-      return applyInlineClassToSelection('fontSize', className);
-    },
-    applyFontFamilyToSelection: (fontFamilyValue: string, classSuffix: string) => {
-      const className = ensureDynamicFontFamilyClass(fontFamilyValue, classSuffix);
-      return applyInlineClassToSelection('fontFamily', className);
-    },
-    applyLineHeightToSelection: (value: number) => {
-      const className = ensureDynamicTypographyClass('lineHeight', value);
-      return applyInlineClassToSelection('lineHeight', className);
-    },
-    hasTextSelection: () => {
-      const sel = editorRef.current?.getSelection();
-      return !!sel && !sel.isEmpty();
-    },
-    getPendingDrafts,
-    getEditorState: () => ({
-      fileId: file?.id,
-      filename,
-      content,
-      hasChanges
-    })
-  }), [
-    handleSave,
-    hasChanges,
-    file?.id,
-    filename,
-    content,
-    getPendingDrafts,
-    applyTypographyToSelection,
-    ensureDynamicTypographyClass,
-    ensureDynamicFontFamilyClass,
-    applyInlineClassToSelection
-  ]);
+    }
+  }), []);
 
   const handleCopilotTrigger = useCallback(async () => {
     if (!editorRef.current) return;
@@ -699,7 +533,7 @@ const TextEditor = forwardRef(function TextEditor(
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); if (onSave && hasChanges) handleSave('manual'); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); if (onSave && hasChanges) handleSave(); }
       if ((e.ctrlKey || e.metaKey) && e.key === ' ') { e.preventDefault(); handleCopilotTrigger(); }
       if (e.key === 'Tab' && showSuggestion) { e.preventDefault(); handleAcceptSuggestion(); }
       if (e.key === 'Escape' && showSuggestion) { e.preventDefault(); handleRejectSuggestion(); }
@@ -721,18 +555,9 @@ const TextEditor = forwardRef(function TextEditor(
           <h2 className="text-2xl mb-3 font-serif italic opacity-70">
             What are we writing today?
           </h2>
-          <p className="text-sm opacity-40 mb-6">
-            Select a file from the sidebar, or create a new one to start writing
+          <p className="text-sm opacity-40 mb-8">
+            Open a file from the sidebar or upload a new manuscript
           </p>
-          {onNewFile && (
-            <button
-              onClick={onNewFile}
-              className="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold rounded-xl text-white bg-indigo-600 hover:bg-indigo-700 transition-colors mb-6 shadow-lg shadow-indigo-500/20"
-            >
-              <FileText className="w-4 h-4" />
-              Create New File
-            </button>
-          )}
           <div className="flex items-center justify-center gap-6 text-xs opacity-30">
             <span>Ctrl+S save</span>
             <span>·</span>
@@ -748,8 +573,8 @@ const TextEditor = forwardRef(function TextEditor(
   return (
     <div className="flex-1 flex flex-col overflow-hidden relative">
       {/* Editor — centered like the reference */}
-      <div className={`flex-1 overflow-hidden flex ${layoutMode === 'left-margin' ? 'justify-start' : layoutMode === 'right-margin' ? 'justify-end' : 'justify-center'}`}>
-        <div className="w-full" style={{ ...editorShellStyle, textTransform: editorTextCaseStyle }}>
+      <div className="flex-1 overflow-hidden flex justify-center">
+        <div className="w-full max-w-3xl">
           <MonacoEditor
             height="100%"
             defaultLanguage="markdown"
@@ -758,9 +583,9 @@ const TextEditor = forwardRef(function TextEditor(
             onMount={handleEditorDidMount}
             theme={`cowrite-${theme}`}
             options={{
-              fontSize,
-              lineHeight,
-              fontFamily,
+              fontSize: 18,
+              lineHeight: 32,
+              fontFamily: "'Crimson Pro', 'Georgia', 'Cambria', serif",
               minimap: { enabled: false },
               lineNumbers: 'off',
               glyphMargin: false,

@@ -79,9 +79,14 @@ export default function DashboardLayout({ children, projectName }: DashboardLayo
       try {
         if (typeof window === 'undefined') return;
         const token = localStorage.getItem('access_token');
-        if (!token) {
-          setUser(null);
-          return;
+        if (!token) return;
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/me`, {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+        if (response.ok) {
+          const userData = await response.json();
+          setUser(userData);
         }
 
         const userData = await api.get<UserType>('/api/v1/auth/me');
@@ -276,7 +281,7 @@ export default function DashboardLayout({ children, projectName }: DashboardLayo
             <div className="flex items-center gap-3 pl-4 border-l border-stone-200 relative" ref={userMenuRef}>
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-medium leading-none">{userName}</p>
-                <p className="text-xs text-stone-500 mt-1">{user?.email || 'Not signed in'}</p>
+                <p className="text-xs text-stone-500 mt-1">{user?.email || 'user@example.com'}</p>
               </div>
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
