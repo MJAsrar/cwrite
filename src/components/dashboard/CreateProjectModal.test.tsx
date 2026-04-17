@@ -1,4 +1,5 @@
 import React from 'react';
+import '@testing-library/jest-dom/jest-globals';
 import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import CreateProjectModal from '@/components/dashboard/CreateProjectModal';
@@ -11,7 +12,7 @@ describe('CreateProjectModal', () => {
 
   it('submits selected genre in payload settings.genre', async () => {
     const user = userEvent.setup();
-    const onSubmit = jest.fn().mockResolvedValue(undefined);
+    const onSubmit = jest.fn<(projectData: { name: string; description?: string; settings?: { genre: string } }) => Promise<void>>().mockResolvedValue(undefined);
 
     render(
       <CreateProjectModal
@@ -38,7 +39,7 @@ describe('CreateProjectModal', () => {
     jest.useFakeTimers();
     const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
     const onClose = jest.fn();
-    const onSubmit = jest.fn().mockResolvedValue(undefined);
+    const onSubmit = jest.fn<(projectData: { name: string; description?: string; settings?: { genre: string } }) => Promise<void>>().mockResolvedValue(undefined);
 
     render(
       <CreateProjectModal
