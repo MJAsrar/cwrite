@@ -22,7 +22,7 @@ class TestCharacterRepositoryAPI:
         await asyncio.sleep(3)
 
         response = await api_client.get(
-            f"/api/v1/relationships/projects/{test_project['id']}/entities",
+            f"/api/v1/projects/{test_project['id']}/entities",
             headers=auth_headers
         )
 
@@ -50,7 +50,7 @@ class TestCharacterRepositoryAPI:
         await asyncio.sleep(3)
 
         response = await api_client.get(
-            f"/api/v1/relationships/projects/{test_project['id']}/entities?entity_type=character",
+            f"/api/v1/projects/{test_project['id']}/entities?entity_type=character",
             headers=auth_headers
         )
 
@@ -65,7 +65,7 @@ class TestCharacterRepositoryAPI:
     async def test_list_project_entities_unauthorized(self, api_client: AsyncClient, test_project: Dict):
         """Test entities endpoint requires authentication."""
         response = await api_client.get(
-            f"/api/v1/relationships/projects/{test_project['id']}/entities"
+            f"/api/v1/projects/{test_project['id']}/entities"
         )
 
         assert response.status_code == 401
