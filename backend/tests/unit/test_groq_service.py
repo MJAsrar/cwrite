@@ -15,9 +15,11 @@ class TestGroqService:
         from app.services.groq_service import GroqService
         
         service = GroqService()
+        service.api_key = "test-api-key"  # set dummy key so the guard doesn't fire
         
         # Mock httpx client
         mock_response = Mock()
+        mock_response.raise_for_status = Mock()
         mock_response.json.return_value = {
             'choices': [{
                 'message': {
@@ -144,6 +146,7 @@ class TestGroqService:
         from app.services.groq_service import GroqService
         
         service = GroqService()
+        service.api_key = "test-api-key"  # set dummy key so the guard doesn't fire
         
         with patch('httpx.AsyncClient') as mock_client:
             mock_response = Mock()

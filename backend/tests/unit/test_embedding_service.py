@@ -25,7 +25,8 @@ class TestEmbeddingService:
         # Mock the model directly on the service instance
         mock_model = Mock()
         text = "This is a test sentence"
-        expected_embedding = np.array([0.1, 0.2, 0.3, 0.4])
+        # encode is called with a list of texts, so return a 2D array (batch of 1)
+        expected_embedding = np.array([[0.1, 0.2, 0.3, 0.4]])
         mock_model.encode = Mock(return_value=expected_embedding)
         service._model = mock_model
         

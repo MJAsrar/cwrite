@@ -3,6 +3,7 @@ Unit tests for RAGContextService
 """
 import pytest
 from unittest.mock import Mock, AsyncMock
+from bson import ObjectId
 
 
 class TestRAGContextService:
@@ -29,7 +30,7 @@ class TestRAGContextService:
         
         context = await service.assemble_context(
             query="Test query",
-            project_id="proj123",
+            project_id=str(ObjectId()),
             max_chunks=5
         )
         
@@ -47,12 +48,12 @@ class TestRAGContextService:
         from datetime import datetime
         
         mock_entity_repo = Mock()
-        from bson import ObjectId
         file_id = str(ObjectId())
+        project_id = str(ObjectId())
         
         mock_entity_repo.get_by_project = AsyncMock(return_value=[
             Entity(
-                project_id="proj123",
+                project_id=project_id,
                 name="Alice",
                 type=EntityType.CHARACTER,
                 mention_count=10,
@@ -77,7 +78,7 @@ class TestRAGContextService:
             text_chunk_repo=mock_chunk_repo
         )
         
-        overview = await service.get_project_overview("proj123")
+        overview = await service.get_project_overview(project_id)
         
         assert 'total_entities' in overview
         assert 'characters' in overview
@@ -123,12 +124,13 @@ class TestRAGContextService:
         from datetime import datetime
         
         mock_entity_repo = Mock()
-        from bson import ObjectId
         file_id = str(ObjectId())
+        project_id = str(ObjectId())
+        entity_id = str(ObjectId())
         
         mock_entity = Entity(
-            id="e1",
-            project_id="proj123",
+            id=entity_id,
+            project_id=project_id,
             name="Alice",
             type=EntityType.CHARACTER,
             mention_count=10,
@@ -153,7 +155,7 @@ class TestRAGContextService:
             entity_mention_repo=mock_mention_repo
         )
         
-        entity_context = await service.get_entity_context("e1", "proj123")
+        entity_context = await service.get_entity_context(entity_id, project_id)
         
         assert 'entity' in entity_context
         assert entity_context['entity']['name'] == 'Alice'
@@ -162,7 +164,6 @@ class TestRAGContextService:
     async def test_assemble_context_with_file_filter(self):
         """Test context assembly with file filtering"""
         from app.services.rag_context_service import RAGContextService
-        from bson import ObjectId
         
         mock_embedding_service = Mock()
         mock_embedding_service.semantic_search = AsyncMock(return_value=[])
@@ -175,13 +176,10 @@ class TestRAGContextService:
             scene_repo=mock_scene_repo
         )
         
-        # Use valid ObjectId format
-        valid_file_id = str(ObjectId())
-        
         context = await service.assemble_context(
             query="Test",
-            project_id="proj123",
-            file_id=valid_file_id,
+            project_id=str(ObjectId()),
+            file_id=str(ObjectId()),
             include_scenes=True
         )
         

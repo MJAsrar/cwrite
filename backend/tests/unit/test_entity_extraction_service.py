@@ -105,6 +105,7 @@ class TestEntityExtractionService:
     async def test_extract_characters(self):
         """Test character extraction"""
         from app.services.entity_extraction_service import EntityExtractionService
+        from bson import ObjectId
         
         service = EntityExtractionService(Mock())
         service._initialize_patterns()
@@ -121,7 +122,7 @@ class TestEntityExtractionService:
         text = "Alice walked through the forest. Alice was brave. Alice smiled. Alice continued."
         
         characters = await service._extract_characters(
-            mock_doc, text, "file123", "proj123"
+            mock_doc, text, str(ObjectId()), str(ObjectId())
         )
         
         # Should extract characters (may be 0 or more based on threshold)

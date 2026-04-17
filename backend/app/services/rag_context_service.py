@@ -226,9 +226,9 @@ class RAGContextService:
             
             return {
                 'total_entities': len(entities),
-                'characters': [{'name': c.name, 'mentions': c.mentions} for c in characters[:20]],
-                'locations': [{'name': l.name, 'mentions': l.mentions} for l in locations[:20]],
-                'themes': [{'name': t.name, 'mentions': t.mentions} for t in themes[:20]],
+                'characters': [{'name': c.name, 'mentions': c.mention_count} for c in characters[:20]],
+                'locations': [{'name': l.name, 'mentions': l.mention_count} for l in locations[:20]],
+                'themes': [{'name': t.name, 'mentions': t.mention_count} for t in themes[:20]],
                 'total_relationships': len(relationships),
                 'total_chunks': len(chunks),
                 'estimated_words': sum(c.word_count for c in chunks)
@@ -278,9 +278,9 @@ class RAGContextService:
                     'id': entity.id,
                     'name': entity.name,
                     'type': entity.type,
-                    'description': entity.description,
+                    'description': getattr(entity, 'description', None),
                     'aliases': entity.aliases or [],
-                    'mentions': entity.mentions
+                    'mentions': entity.mention_count
                 },
                 'total_mentions': len(mentions),
                 'first_mention': mentions[0] if mentions else None,

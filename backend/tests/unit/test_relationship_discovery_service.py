@@ -127,10 +127,11 @@ class TestRelationshipDiscoveryService:
         # Create mock entities with all required fields
         from bson import ObjectId
         file_id = str(ObjectId())
+        project_id = str(ObjectId())
         
         entity1 = Entity(
             id="e1",
-            project_id="proj123",
+            project_id=project_id,
             name="Alice",
             type=EntityType.CHARACTER,
             aliases=[],
@@ -143,7 +144,7 @@ class TestRelationshipDiscoveryService:
         )
         entity2 = Entity(
             id="e2",
-            project_id="proj123",
+            project_id=project_id,
             name="Bob",
             type=EntityType.CHARACTER,
             aliases=[],
@@ -158,10 +159,12 @@ class TestRelationshipDiscoveryService:
         # Create mock text chunk
         chunk = TextChunk(
             id="chunk1",
-            file_id="file123",
-            project_id="proj123",
+            file_id=file_id,
+            project_id=project_id,
             content="Alice and Bob walked together.",
             chunk_index=0,
+            start_position=0,
+            end_position=30,
             word_count=5
         )
         
