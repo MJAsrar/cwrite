@@ -12,7 +12,7 @@ import FileProcessingStatus from '@/components/workspace/FileProcessingStatus';
 import FileUploadZone from '@/components/workspace/FileUploadZone';
 import SearchContextIndicator from '@/components/search/SearchContextIndicator';
 import FilePreview from '@/components/workspace/FilePreview';
-import { ArrowLeft, FileText } from 'lucide-react';
+import { ArrowLeft, FileText, PlusCircle } from 'lucide-react';
 import Link from 'next/link';
 
 function ProjectFilesPageContent() {
@@ -26,6 +26,9 @@ function ProjectFilesPageContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<ProjectFile | null>(null);
+  const [newFileName, setNewFileName] = useState('untitled');
+  const [creatingFile, setCreatingFile] = useState(false);
+  const [createFileError, setCreateFileError] = useState<string | null>(null);
 
   // Get file ID from URL params if navigating from search
   const fileParam = searchParams.get('file');
@@ -92,9 +95,35 @@ function ProjectFilesPageContent() {
       // Refresh project data to get updated stats
       const updatedProject = await api.projects.get(projectId);
       setProject(updatedProject as Project);
+      setCreateFileError(null);
       
     } catch (err: any) {
       console.error('Failed to upload files:', err);
+      setCreateFileError(err?.message || 'Failed to upload file. Please try again.');
+    }
+  };
+
+  const handleCreateNewFile = async () => {
+    const sanitizedName = newFileName.trim().replace(/[^a-zA-Z0-9 _-]/g, '');
+    if (!sanitizedName) {
+      setCreateFileError('Please enter a valid file name.');
+      return;
+    }
+
+    setCreatingFile(true);
+    setCreateFileError(null);
+
+    try {
+      const filename = sanitizedName.toLowerCase().endsWith('.txt') ? sanitizedName : `${sanitizedName}.txt`;
+      const starterContent = 'Start writing here...\n';
+      const newFile = new File([starterContent], filename, { type: 'text/plain' });
+
+      await handleFileUpload([newFile]);
+      setNewFileName('untitled');
+    } catch (err: any) {
+      setCreateFileError(err?.message || 'Failed to create new file.');
+    } finally {
+      setCreatingFile(false);
     }
   };
 
@@ -188,7 +217,38 @@ function ProjectFilesPageContent() {
           <>
             {/* Upload Zone */}
             <div className="bg-white rounded-lg border border-secondary-200 p-6">
-              <h2 className="text-lg font-semibold text-secondary-900 mb-4">Upload New Files</h2>
+              <h2 className="text-lg font-semibold text-secondary-900 mb-4">Files</h2>
+
+              <div className="mb-6 rounded-lg border border-secondary-200 bg-secondary-50 p-4">
+                <h3 className="text-sm font-semibold text-secondary-900 mb-3 flex items-center gap-2">
+                  <PlusCircle className="w-4 h-4" />
+                  Create New File
+                </h3>
+
+                <div className="flex flex-col sm:flex-row gap-3">
+                  <input
+                    type="text"
+                    value={newFileName}
+                    onChange={(e) => setNewFileName(e.target.value)}
+                    placeholder="Enter file name"
+                    className="flex-1 rounded-md border border-secondary-300 px-3 py-2 text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleCreateNewFile}
+                    disabled={creatingFile}
+                    className="rounded-md bg-primary-600 text-white px-4 py-2 text-sm font-medium hover:bg-primary-700 disabled:opacity-50"
+                  >
+                    {creatingFile ? 'Creating...' : 'Create .txt file'}
+                  </button>
+                </div>
+
+                {createFileError && (
+                  <p className="mt-2 text-sm text-red-600">{createFileError}</p>
+                )}
+              </div>
+
+              <h3 className="text-sm font-semibold text-secondary-900 mb-3">Or Upload Existing Files</h3>
               <FileUploadZone
                 onFileUpload={handleFileUpload}
                 maxFiles={10}

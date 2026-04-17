@@ -22,6 +22,7 @@ import {
   User
 } from 'lucide-react';
 import { User as UserType } from '@/types';
+import { api } from '@/lib/api';
 
 interface DashboardLayoutProps {
   children: ReactNode;
@@ -78,21 +79,20 @@ export default function DashboardLayout({ children, projectName }: DashboardLayo
       try {
         if (typeof window === 'undefined') return;
         const token = localStorage.getItem('access_token');
-        if (!token) return;
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/me`, {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (response.ok) {
-          const userData = await response.json();
-          setUser(userData);
+        if (!token) {
+          setUser(null);
+          return;
         }
+
+        const userData = await api.get<UserType>('/api/v1/auth/me');
+        setUser(userData);
       } catch (error) {
         console.error('Failed to get user info:', error);
+        setUser(null);
       }
     };
     getUserInfo();
-  }, []);
+  }, [pathname]);
 
   // Close user menu on outside click
   useEffect(() => {
@@ -276,7 +276,7 @@ export default function DashboardLayout({ children, projectName }: DashboardLayo
             <div className="flex items-center gap-3 pl-4 border-l border-stone-200 relative" ref={userMenuRef}>
               <div className="text-right hidden sm:block">
                 <p className="text-sm font-medium leading-none">{userName}</p>
-                <p className="text-xs text-stone-500 mt-1">{user?.email || 'user@example.com'}</p>
+                <p className="text-xs text-stone-500 mt-1">{user?.email || 'Not signed in'}</p>
               </div>
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}

@@ -23,19 +23,17 @@ class AuthMiddleware:
             return
         
         request = Request(scope, receive)
+
+        # Do not rate-limit CORS preflight requests.
+        if request.method == "OPTIONS":
+            await self.app(scope, receive, send)
+            return
         
         # Apply rate limiting for authentication endpoints
         if request.url.path.startswith("/api/v1/auth/"):
-            client_ip = request.client.host
-            
-            # Stricter rate limiting for auth endpoints
-            if not await rate_limiter.is_allowed(f"auth:{client_ip}", 10, 900):  # 10 requests per 15 minutes
-                response = JSONResponse(
-                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                    content={"detail": "Too many authentication attempts. Please try again in 15 minutes."}
-                )
-                await response(scope, receive, send)
-                return
+            # Auth endpoint-specific throttling is already handled by endpoint dependencies.
+            # Skipping it here prevents duplicate counting and accidental lockouts.
+            pass
         
         # Apply general rate limiting
         elif request.url.path.startswith("/api/"):

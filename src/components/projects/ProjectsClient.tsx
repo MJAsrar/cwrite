@@ -47,6 +47,28 @@ export default function ProjectsClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    if (!mounted) return;
+
+    const handleFocusRefresh = () => {
+      loadProjects();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadProjects();
+      }
+    };
+
+    window.addEventListener('focus', handleFocusRefresh);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleFocusRefresh);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [mounted]);
+
   const loadProjects = async () => {
     try {
       setLoading(true);

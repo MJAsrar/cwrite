@@ -137,7 +137,7 @@ export default function VSCodeWorkspace({
 
   const handleFileSelect = (file: ProjectFile) => setSelectedFile(file);
 
-  // Create a new blank file
+  // Create a new file with starter content so it passes empty-file validation.
   const handleCreateNewFile = async () => {
     const filename = newFileName.trim();
     if (!filename) return;
@@ -147,7 +147,7 @@ export default function VSCodeWorkspace({
 
     setIsCreatingFile(true);
     try {
-      const blob = new Blob([''], { type: 'text/plain' });
+      const blob = new Blob(['Start writing here...\n'], { type: 'text/plain' });
       const file = new window.File([blob], finalName, { type: 'text/plain' });
       await onFileUpload([file]);
       await onRefresh();

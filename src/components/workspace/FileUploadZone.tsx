@@ -43,6 +43,10 @@ export default function FileUploadZone({
   const uploadTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const validateFile = (file: File): string | null => {
+    if (file.size === 0) {
+      return 'Empty files cannot be uploaded. Use "Create New File" to start writing.';
+    }
+
     // Check file size
     if (file.size > maxFileSize) {
       return `File size exceeds ${Math.round(maxFileSize / (1024 * 1024))}MB limit`;

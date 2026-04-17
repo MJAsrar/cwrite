@@ -46,6 +46,28 @@ export default function DashboardClient() {
     }
   }, [mounted]);
 
+  useEffect(() => {
+    if (!mounted) return;
+
+    const handleFocusRefresh = () => {
+      loadDashboardData();
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        loadDashboardData();
+      }
+    };
+
+    window.addEventListener('focus', handleFocusRefresh);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('focus', handleFocusRefresh);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [mounted]);
+
   const loadDashboardData = async () => {
     try {
       setLoading(true);
