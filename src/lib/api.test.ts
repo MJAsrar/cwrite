@@ -1,29 +1,9 @@
 import axios, { type AxiosError, type AxiosResponse } from 'axios';
-import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-jest.mock('axios', () => ({
-  __esModule: true,
-  default: {
-    create: jest.fn(() => ({
-      get: jest.fn(),
-      post: jest.fn(),
-      put: jest.fn(),
-      delete: jest.fn(),
-      interceptors: {
-        request: {
-          use: jest.fn(),
-        },
-        response: {
-          use: jest.fn(),
-        },
-      },
-    })),
-  },
-}));
-
-import { api } from '@/lib/api';
-
-type MockAxiosInstance = {
+// Must be `var` — jest.mock() is hoisted above `let`/`const` declarations,
+// so only `var` (which is hoisted and initialized as undefined) is accessible
+// inside the factory.
+var mockAxiosInstance: {
   get: jest.Mock;
   post: jest.Mock;
   put: jest.Mock;
@@ -34,21 +14,38 @@ type MockAxiosInstance = {
   };
 };
 
+jest.mock('axios', () => {
+  mockAxiosInstance = {
+    get: jest.fn(),
+    post: jest.fn(),
+    put: jest.fn(),
+    delete: jest.fn(),
+    interceptors: {
+      request: { use: jest.fn() },
+      response: { use: jest.fn() },
+    },
+  };
+  return {
+    __esModule: true,
+    default: {
+      create: jest.fn(() => mockAxiosInstance),
+    },
+  };
+});
+
+import { api } from '@/lib/api';
+
 describe('api client retry and error handling', () => {
-  let client: MockAxiosInstance;
-  let mockGet: jest.Mock<(...args: any[]) => any>;
-  let mockPost: jest.Mock<(...args: any[]) => any>;
-  let responseErrorHandler: (error: any) => Promise<never>;
-  let removeItemSpy: ReturnType<typeof jest.spyOn>;
+  // responseErrorHandler is registered once when ApiClient constructs — capture after import.
+  const responseErrorHandler = (mockAxiosInstance.interceptors.response.use as jest.Mock)
+    .mock.calls[0][1] as (error: any) => Promise<never>;
+
+  let removeItemSpy: jest.SpyInstance;
 
   beforeEach(() => {
-    client = (axios.create as jest.Mock).mock.results[0].value as MockAxiosInstance;
-    mockGet = client.get as jest.Mock<(...args: any[]) => any>;
-    mockPost = client.post as jest.Mock<(...args: any[]) => any>;
-    const responseUse = client.interceptors.response.use as jest.Mock<(...args: any[]) => any>;
-    responseErrorHandler = responseUse.mock.calls[0][1] as (error: any) => Promise<never>;
+    mockAxiosInstance.get.mockReset();
+    mockAxiosInstance.post.mockReset();
     removeItemSpy = jest.spyOn(Storage.prototype, 'removeItem');
-    jest.clearAllMocks();
     jest.spyOn(Math, 'random').mockReturnValue(0);
   });
 
@@ -57,7 +54,7 @@ describe('api client retry and error handling', () => {
   });
 
   it('retries network errors then succeeds', async () => {
-    mockGet
+    mockAxiosInstance.get
       .mockRejectedValueOnce({ message: 'network-1' } as AxiosError)
       .mockRejectedValueOnce({ message: 'network-2' } as AxiosError)
       .mockResolvedValueOnce({ data: { ok: true } } as AxiosResponse<{ ok: boolean }>);
@@ -65,27 +62,22 @@ describe('api client retry and error handling', () => {
     const result = await api.get<{ ok: boolean }>('/api/v1/projects');
 
     expect(result).toEqual({ ok: true });
-    expect(mockGet).toHaveBeenCalledTimes(3);
+    expect(mockAxiosInstance.get).toHaveBeenCalledTimes(3);
     expect(removeItemSpy).not.toHaveBeenCalled();
   });
 
   it('does not retry auth errors and returns categorized auth error', async () => {
     const authError = {
       message: 'unauthorized',
-      response: {
-        status: 401,
-        data: {},
-      },
+      response: { status: 401, data: {} },
     } as AxiosError;
 
-    mockGet.mockRejectedValueOnce(authError);
+    mockAxiosInstance.get.mockRejectedValueOnce(authError);
 
     await expect(api.get('/api/v1/auth/me')).rejects.toMatchObject({
-      response: {
-        status: 401,
-      },
+      response: { status: 401 },
     });
-    expect(mockGet).toHaveBeenCalledTimes(1);
+    expect(mockAxiosInstance.get).toHaveBeenCalledTimes(1);
 
     await expect(responseErrorHandler(authError)).rejects.toMatchObject({
       category: 'auth',
