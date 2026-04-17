@@ -15,7 +15,7 @@ class TestIndexingAPI:
     ):
         """Reindex endpoint should require authentication."""
         response = await api_client.post(
-            "/api/v1/projects/000000000000000000000001/indexing/reindex"
+            "/api/v1/indexing/projects/000000000000000000000001/indexing/reindex"
         )
         assert response.status_code == 401
 
@@ -25,7 +25,7 @@ class TestIndexingAPI:
     ):
         """Indexing status endpoint should require authentication."""
         response = await api_client.get(
-            "/api/v1/projects/000000000000000000000001/indexing/status"
+            "/api/v1/indexing/projects/000000000000000000000001/indexing/status"
         )
         assert response.status_code == 401
 
