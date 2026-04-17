@@ -16,8 +16,8 @@ api_router.include_router(search.router, prefix="/search", tags=["search"])
 # Include relationship discovery routes (routes already have appropriate prefixes)
 api_router.include_router(relationships.router, tags=["relationships"])
 
-# Include indexing management routes
-api_router.include_router(indexing.router, prefix="/indexing", tags=["indexing"])
+# Include indexing management routes (routes define their own full paths)
+api_router.include_router(indexing.router, tags=["indexing"])
 
 # Include project management routes
 api_router.include_router(projects.router, prefix="/projects", tags=["projects"])
