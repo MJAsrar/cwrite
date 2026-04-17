@@ -45,10 +45,10 @@ build:
 
 # Run tests
 test:
-	@echo "Running frontend tests..."
-	npm run test
-	@echo "Running backend tests..."
-	cd backend && pytest
+	@echo "Running frontend tests with coverage..."
+	npm run test:coverage
+	@echo "Running backend tests with coverage..."
+	cd backend && pytest --cov=app --cov-report=html:reports/coverage --cov-report=term-missing
 	@echo "All tests completed!"
 
 # Clean build artifacts

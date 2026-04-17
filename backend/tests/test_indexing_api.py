@@ -11,21 +11,21 @@ class TestIndexingAPI:
 
     @pytest.mark.asyncio
     async def test_start_project_reindexing_unauthorized(
-        self, api_client: AsyncClient, test_project: Dict
+        self, api_client: AsyncClient
     ):
         """Reindex endpoint should require authentication."""
         response = await api_client.post(
-            f"/api/v1/projects/{test_project['id']}/indexing/reindex"
+            "/api/v1/projects/000000000000000000000001/indexing/reindex"
         )
         assert response.status_code == 401
 
     @pytest.mark.asyncio
     async def test_get_project_indexing_status_unauthorized(
-        self, api_client: AsyncClient, test_project: Dict
+        self, api_client: AsyncClient
     ):
         """Indexing status endpoint should require authentication."""
         response = await api_client.get(
-            f"/api/v1/projects/{test_project['id']}/indexing/status"
+            "/api/v1/projects/000000000000000000000001/indexing/status"
         )
         assert response.status_code == 401
 
