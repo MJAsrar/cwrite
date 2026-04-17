@@ -23,7 +23,7 @@ import {
   CheckCircle2,
   AlertCircle
 } from 'lucide-react';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import TextEditor from './TextEditor';
 import AIChatPanel from './AIChatPanel';
 import SearchModal from './SearchModal';
@@ -103,9 +103,14 @@ export default function VSCodeWorkspace({
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveMessage, setSaveMessage] = useState<string>('');
   const [noticeMessage, setNoticeMessage] = useState<string>('');
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const [pendingDestination, setPendingDestination] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<any>(null);
   const newFileInputRef = useRef<HTMLInputElement>(null);
+  const lastOpenFileKey = `cowrite-last-open-file:${project.id}`;
+  const router = useRouter();
 
   const t = THEME_CLASSES[theme];
 
@@ -147,6 +152,34 @@ export default function VSCodeWorkspace({
   }, []);
 
   useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (selectedFile) {
+      localStorage.setItem(lastOpenFileKey, selectedFile.id);
+      return;
+    }
+
+    const rememberedFileId = localStorage.getItem(lastOpenFileKey);
+    if (rememberedFileId) {
+      const rememberedFile = files.find((f) => f.id === rememberedFileId);
+      if (rememberedFile) {
+        setSelectedFile(rememberedFile);
+      }
+    }
+  }, [selectedFile, files, lastOpenFileKey]);
+
+  useEffect(() => {
+    if (!selectedFile) return;
+    const updatedSelectedFile = files.find((f) => f.id === selectedFile.id);
+    if (updatedSelectedFile && updatedSelectedFile !== selectedFile) {
+      setSelectedFile(updatedSelectedFile);
+    }
+    if (!updatedSelectedFile) {
+      setSelectedFile(null);
+    }
+  }, [files, selectedFile]);
+
+  useEffect(() => {
     if (!saveMessage && !noticeMessage) return;
     const timer = window.setTimeout(() => {
       setSaveMessage('');
@@ -157,6 +190,61 @@ export default function VSCodeWorkspace({
     }, 2800);
     return () => window.clearTimeout(timer);
   }, [saveMessage, noticeMessage, saveState]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      const hasPendingDrafts = editorRef.current?.hasPendingDrafts?.() || hasUnsavedChanges;
+      if (!hasPendingDrafts) return;
+
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  const handleNavigateAway = (destination: string) => {
+    const hasPendingDrafts = editorRef.current?.hasPendingDrafts?.() || hasUnsavedChanges;
+    if (hasPendingDrafts) {
+      setPendingDestination(destination);
+      setShowLeaveModal(true);
+      return;
+    }
+    router.push(destination);
+  };
+
+  const handleLeaveWithSave = async () => {
+    const destination = pendingDestination;
+    if (!destination) return;
+
+    setIsLeaving(true);
+    try {
+      const pendingDrafts = editorRef.current?.getPendingDrafts?.() || [];
+      for (const draft of pendingDrafts) {
+        if (draft.fileId) {
+          await api.put(`/api/v1/files/${draft.fileId}`, { text_content: draft.content });
+        }
+      }
+
+      setShowLeaveModal(false);
+      setPendingDestination(null);
+      router.push(destination);
+    } catch (error: any) {
+      setSaveState('error');
+      setSaveMessage(error?.message || 'Failed to save one or more files before leaving.');
+    } finally {
+      setIsLeaving(false);
+    }
+  };
+
+  const handleLeaveWithoutSave = () => {
+    const destination = pendingDestination;
+    if (!destination) return;
+    setShowLeaveModal(false);
+    setPendingDestination(null);
+    router.push(destination);
+  };
 
 
   const handleFileSelect = async (file: ProjectFile) => {
@@ -233,7 +321,7 @@ export default function VSCodeWorkspace({
     try {
       if (selectedFile) {
         await api.put(`/api/v1/files/${selectedFile.id}`, { text_content: content });
-        await onRefresh();
+        return;
       } else if (newFilename) {
         const blob = new Blob([content], { type: 'text/plain' });
         const file = new File([blob], newFilename, { type: 'text/plain' });
@@ -286,13 +374,13 @@ export default function VSCodeWorkspace({
       {/* ═══ LEFT NAVIGATION RAIL ═══ */}
       {!focusMode && (
         <aside className={`flex flex-col items-center py-6 space-y-8 border-r ${t.border} ${t.rail} w-16 z-20 flex-shrink-0`}>
-          <Link
-            href="/dashboard"
+          <button
+            onClick={() => handleNavigateAway('/dashboard')}
             className="p-2 rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 hover:bg-indigo-700 transition-colors"
             title="Dashboard"
           >
             <BookOpen size={24} />
-          </Link>
+          </button>
 
           <nav className="flex flex-col space-y-4">
             <NavIcon
@@ -661,6 +749,43 @@ export default function VSCodeWorkspace({
         projectId={project.id}
         onRefresh={onRefresh}
       />
+
+      {showLeaveModal && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-xl border border-stone-200 bg-white p-5 shadow-2xl">
+            <h3 className="text-base font-semibold text-stone-900">Save changes before leaving?</h3>
+            <p className="mt-2 text-sm text-stone-600">
+              You have unsaved file changes in this project. Save them before leaving this page.
+            </p>
+            <div className="mt-5 flex items-center justify-end gap-2">
+              <button
+                onClick={() => {
+                  setShowLeaveModal(false);
+                  setPendingDestination(null);
+                }}
+                className="px-3 py-1.5 rounded-md border border-stone-300 text-stone-700 text-sm hover:bg-stone-50"
+                disabled={isLeaving}
+              >
+                Stay
+              </button>
+              <button
+                onClick={handleLeaveWithoutSave}
+                className="px-3 py-1.5 rounded-md border border-amber-300 text-amber-700 text-sm hover:bg-amber-50"
+                disabled={isLeaving}
+              >
+                Leave without saving
+              </button>
+              <button
+                onClick={handleLeaveWithSave}
+                className="px-3 py-1.5 rounded-md bg-indigo-600 text-white text-sm hover:bg-indigo-700 disabled:opacity-60"
+                disabled={isLeaving}
+              >
+                {isLeaving ? 'Saving...' : 'Save and leave'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
