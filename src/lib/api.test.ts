@@ -1,4 +1,5 @@
 import axios, { type AxiosError, type AxiosResponse } from 'axios';
+import { afterEach, beforeEach, describe, expect, it, jest } from '@jest/globals';
 
 jest.mock('axios', () => ({
   __esModule: true,
@@ -22,11 +23,22 @@ jest.mock('axios', () => ({
 
 import { api } from '@/lib/api';
 
+type MockAxiosInstance = {
+  get: jest.Mock;
+  post: jest.Mock;
+  put: jest.Mock;
+  delete: jest.Mock;
+  interceptors: {
+    request: { use: jest.Mock };
+    response: { use: jest.Mock };
+  };
+};
+
 describe('api client retry and error handling', () => {
-  const client = (axios.create as jest.Mock).mock.results[0].value;
-  const mockGet = client.get as jest.Mock;
-  const mockPost = client.post as jest.Mock;
-  const responseUse = client.interceptors.response.use as jest.Mock;
+  const client = (axios.create as jest.Mock).mock.results[0].value as MockAxiosInstance;
+  const mockGet = client.get as jest.Mock<(...args: any[]) => any>;
+  const mockPost = client.post as jest.Mock<(...args: any[]) => any>;
+  const responseUse = client.interceptors.response.use as jest.Mock<(...args: any[]) => any>;
   const responseErrorHandler = responseUse.mock.calls[0][1] as (error: any) => Promise<never>;
   const removeItemSpy = jest.spyOn(Storage.prototype, 'removeItem');
 
