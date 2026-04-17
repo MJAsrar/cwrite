@@ -103,6 +103,7 @@ export default function VSCodeWorkspace({
   const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
   const [saveMessage, setSaveMessage] = useState<string>('');
   const [noticeMessage, setNoticeMessage] = useState<string>('');
+  const [onlinePhase, setOnlinePhase] = useState<'label' | 'transition' | 'dot'>('label');
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [isLeaving, setIsLeaving] = useState(false);
   const [pendingDestination, setPendingDestination] = useState<string | null>(null);
@@ -190,6 +191,22 @@ export default function VSCodeWorkspace({
     }, 2800);
     return () => window.clearTimeout(timer);
   }, [saveMessage, noticeMessage, saveState]);
+
+  useEffect(() => {
+    setOnlinePhase('label');
+    const transitionTimer = window.setTimeout(() => {
+      setOnlinePhase('transition');
+    }, 2000);
+
+    const dotTimer = window.setTimeout(() => {
+      setOnlinePhase('dot');
+    }, 2325);
+
+    return () => {
+      window.clearTimeout(transitionTimer);
+      window.clearTimeout(dotTimer);
+    };
+  }, [project.id]);
 
   useEffect(() => {
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
@@ -366,6 +383,20 @@ export default function VSCodeWorkspace({
   };
 
   const genreLabel = (project as any)?.settings?.genre || '';
+  const toastTone =
+    saveState === 'error'
+      ? 'border-red-200 bg-red-50/95 text-red-700'
+      : saveState === 'saved'
+        ? 'border-emerald-200 bg-emerald-50/95 text-emerald-700'
+        : saveState === 'saving'
+          ? 'border-indigo-200 bg-indigo-50/95 text-indigo-700'
+          : 'border-stone-200 bg-stone-50/95 text-stone-700';
+  const autoSaveOffTone =
+    theme === 'dark'
+      ? 'bg-zinc-900 text-zinc-300 border-zinc-700 hover:bg-zinc-800'
+      : theme === 'light'
+        ? 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+        : 'bg-[#FBF5E8] text-[#5C4B37] border-stone-200 hover:bg-[#F5EBDA]';
 
   return (
     <div className={`flex h-screen w-full font-sans transition-colors duration-300 ${t.bg} ${t.text}`}
@@ -585,11 +616,33 @@ export default function VSCodeWorkspace({
             </div>
 
             <div className="flex items-center space-x-2">
+              <div
+                className={`h-8 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-semibold flex items-center overflow-hidden will-change-[width,padding,opacity,transform] ${
+                  onlinePhase === 'label'
+                    ? 'px-3 gap-1.5 w-auto transition-all duration-300 ease-out'
+                    : onlinePhase === 'transition'
+                      ? 'px-1.5 gap-1 w-8 transition-all duration-300 ease-in-out'
+                      : 'px-0 gap-0 w-8 justify-center transition-all duration-200 ease-in'
+                }`}
+                title="Connection status"
+              >
+                <span className={`h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_0_rgba(16,185,129,0.35)] animate-pulse transition-transform duration-300 ${onlinePhase === 'dot' ? 'translate-x-0' : 'translate-x-0'}`} />
+                <span className={`whitespace-nowrap overflow-hidden origin-left transition-all duration-300 ease-in-out ${
+                  onlinePhase === 'label'
+                    ? 'opacity-100 max-w-[72px] translate-x-0'
+                    : onlinePhase === 'transition'
+                      ? 'opacity-0 max-w-0 -translate-x-1'
+                      : 'opacity-0 max-w-0 -translate-x-2'
+                }`}>
+                  ONLINE
+                </span>
+              </div>
+
               <button
-                className={`px-2.5 py-1.5 rounded-md border text-xs font-semibold transition-colors ${
+                className={`h-8 px-2.5 rounded-md border text-xs font-semibold transition-colors duration-200 ${
                   autoSaveEnabled
-                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
-                    : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-50'
+                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+                    : autoSaveOffTone
                 }`}
                 onClick={handleAutoSaveToggle}
                 title="Toggle Auto Save"
@@ -622,9 +675,6 @@ export default function VSCodeWorkspace({
                   PROCESSING
                 </div>
               )}
-              <div className="px-3 py-1 rounded-full bg-green-500/10 text-green-600 text-xs font-bold border border-green-500/20">
-                ONLINE
-              </div>
               <button className={`p-2 rounded-md ${t.hover}`} title="Typography">
                 <Type size={18} />
               </button>
@@ -672,8 +722,11 @@ export default function VSCodeWorkspace({
 
         {(saveMessage || noticeMessage) && (
           <div className="absolute bottom-12 right-6 z-20">
-            <div className="rounded-lg border border-stone-200 bg-white/95 shadow-lg px-3 py-2 text-xs text-stone-700 backdrop-blur-sm">
-              {saveMessage || noticeMessage}
+            <div className={`rounded-md border shadow-lg px-3.5 py-2.5 text-xs font-medium backdrop-blur-sm transition-all duration-300 ${toastTone}`}>
+              <div className="flex items-center gap-2">
+                {saveState === 'error' ? <AlertCircle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                <span>{saveMessage || noticeMessage}</span>
+              </div>
             </div>
           </div>
         )}
