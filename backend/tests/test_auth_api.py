@@ -181,3 +181,46 @@ class TestAuthenticationAPI:
         assert "access_token" in data
         assert "refresh_token" in data
         assert data["token_type"] == "bearer"
+
+    @pytest.mark.asyncio
+    async def test_refresh_token_missing_cookie(self, api_client: AsyncClient):
+        """Refresh endpoint should reject requests without cookie token"""
+        api_client.cookies.clear()
+        response = await api_client.post("/api/v1/auth/refresh")
+        assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_forgot_password(self, api_client: AsyncClient):
+        """Forgot password should return generic success message"""
+        response = await api_client.post(
+            "/api/v1/auth/forgot-password",
+            json={"email": "test_user@example.com"}
+        )
+
+        assert response.status_code == 200
+        data = response.json()
+        assert "message" in data
+
+    @pytest.mark.asyncio
+    async def test_reset_password_invalid_token(self, api_client: AsyncClient):
+        """Reset password should reject invalid reset tokens"""
+        response = await api_client.post(
+            "/api/v1/auth/reset-password",
+            json={
+                "token": "invalid-reset-token",
+                "new_password": "NewSecurePass123!",
+                "confirm_password": "NewSecurePass123!"
+            }
+        )
+
+        assert response.status_code in [400, 401]
+
+    @pytest.mark.asyncio
+    async def test_verify_email_invalid_token(self, api_client: AsyncClient):
+        """Email verification should reject invalid verification tokens"""
+        response = await api_client.post(
+            "/api/v1/auth/verify-email",
+            json={"token": "invalid-verification-token"}
+        )
+
+        assert response.status_code == 400

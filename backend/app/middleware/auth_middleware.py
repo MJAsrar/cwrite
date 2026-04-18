@@ -10,6 +10,18 @@ from ..core.config import settings
 logger = logging.getLogger(__name__)
 
 
+def _should_skip_rate_limit(request: Request) -> bool:
+    """Allow local development and tests to run without artificial throttling."""
+    if settings.ENVIRONMENT.lower() in {"test", "testing"}:
+        return True
+
+    client_ip = request.client.host if request.client else ""
+    if settings.DEBUG and client_ip in {"127.0.0.1", "::1", "localhost"}:
+        return True
+
+    return False
+
+
 class AuthMiddleware:
     """Authentication and security middleware"""
     
@@ -37,6 +49,10 @@ class AuthMiddleware:
         
         # Apply general rate limiting
         elif request.url.path.startswith("/api/"):
+            if _should_skip_rate_limit(request):
+                await self.app(scope, receive, send)
+                return
+
             client_ip = request.client.host
             
             # General API rate limiting

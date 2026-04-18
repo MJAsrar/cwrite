@@ -332,3 +332,64 @@ class TestSearchAPI:
         
         # Should be 401 unauthorized, but API might return 403 for forbidden access
         assert response.status_code in [401, 403]
+
+    @pytest.mark.asyncio
+    async def test_autocomplete_unauthorized(self, api_client: AsyncClient):
+        """Autocomplete should require authentication"""
+        response = await api_client.get(
+            "/api/v1/search/autocomplete/507f1f77bcf86cd799439011?q=ali&limit=5"
+        )
+        assert response.status_code in [401, 403]
+
+    @pytest.mark.asyncio
+    async def test_similar_content_unauthorized(self, api_client: AsyncClient):
+        """Similar content endpoint should require authentication"""
+        response = await api_client.get(
+            "/api/v1/search/similar/507f1f77bcf86cd799439011?limit=5"
+        )
+        assert response.status_code in [401, 403]
+
+    @pytest.mark.asyncio
+    async def test_autocomplete_missing_query_validation(
+        self,
+        api_client: AsyncClient,
+        auth_headers: Dict[str, str]
+    ):
+        """Autocomplete should validate required query parameter"""
+        response = await api_client.get(
+            "/api/v1/search/autocomplete/507f1f77bcf86cd799439011",
+            headers=auth_headers
+        )
+        assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_analytics_unauthorized(self, api_client: AsyncClient):
+        """Search analytics endpoint should require authentication"""
+        response = await api_client.get(
+            "/api/v1/search/analytics/507f1f77bcf86cd799439011"
+        )
+        assert response.status_code in [401, 403]
+
+    @pytest.mark.asyncio
+    async def test_performance_unauthorized(self, api_client: AsyncClient):
+        """Search performance endpoint should require authentication"""
+        response = await api_client.get(
+            "/api/v1/search/performance/507f1f77bcf86cd799439011"
+        )
+        assert response.status_code in [401, 403]
+
+    @pytest.mark.asyncio
+    async def test_cache_invalidation_unauthorized(self, api_client: AsyncClient):
+        """Cache invalidation endpoint should require authentication"""
+        response = await api_client.delete(
+            "/api/v1/search/cache/507f1f77bcf86cd799439011"
+        )
+        assert response.status_code in [401, 403]
+
+    @pytest.mark.asyncio
+    async def test_cleanup_embeddings_unauthorized(self, api_client: AsyncClient):
+        """Embedding cleanup endpoint should require authentication"""
+        response = await api_client.delete(
+            "/api/v1/search/embeddings/cleanup/507f1f77bcf86cd799439011"
+        )
+        assert response.status_code in [401, 403]

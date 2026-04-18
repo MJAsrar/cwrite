@@ -108,6 +108,14 @@ async def rate_limit_dependency(request: Request, limit: int = 100, window: int 
         limit: Maximum requests per window (default: 100)
         window: Time window in seconds (default: 1 hour)
     """
+    client_ip = request.client.host if request.client else ""
+
+    if settings.ENVIRONMENT.lower() in {"test", "testing"}:
+        return
+
+    if settings.DEBUG and client_ip in {"127.0.0.1", "::1", "localhost"}:
+        return
+
     # Use IP address as key
     client_ip = request.client.host
     
@@ -120,6 +128,14 @@ async def rate_limit_dependency(request: Request, limit: int = 100, window: int 
 
 async def auth_rate_limit_dependency(request: Request):
     """Rate limiting for authentication endpoints (stricter limits)"""
+    client_ip = request.client.host if request.client else ""
+
+    if settings.ENVIRONMENT.lower() in {"test", "testing"}:
+        return
+
+    if settings.DEBUG and client_ip in {"127.0.0.1", "::1", "localhost"}:
+        return
+
     client_ip = request.client.host
     
     # 10 requests per 15 minutes for auth endpoints

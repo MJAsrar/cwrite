@@ -140,3 +140,102 @@ class TestChatAPI:
         
         # Should require project ID
         assert response.status_code in [400, 422]
+
+    @pytest.mark.asyncio
+    async def test_list_conversations_unauthorized(self, api_client: AsyncClient):
+        """Conversation listing should require authentication"""
+        response = await api_client.get("/api/v1/chat/conversations")
+        assert response.status_code == 401
+
+    @pytest.mark.asyncio
+    async def test_get_conversation_invalid_id(
+        self,
+        api_client: AsyncClient,
+        auth_headers: Dict[str, str]
+    ):
+        """Conversation lookup should validate ObjectId format"""
+        response = await api_client.get(
+            "/api/v1/chat/conversations/not-an-object-id",
+            headers=auth_headers
+        )
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_get_conversation_messages_invalid_id(
+        self,
+        api_client: AsyncClient,
+        auth_headers: Dict[str, str]
+    ):
+        """Conversation message history should validate ObjectId format"""
+        response = await api_client.get(
+            "/api/v1/chat/conversations/not-an-object-id/messages",
+            headers=auth_headers
+        )
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_delete_conversation_invalid_id(
+        self,
+        api_client: AsyncClient,
+        auth_headers: Dict[str, str]
+    ):
+        """Conversation deletion should validate ObjectId format"""
+        response = await api_client.delete(
+            "/api/v1/chat/conversations/not-an-object-id",
+            headers=auth_headers
+        )
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_create_conversation_invalid_project_id(
+        self,
+        api_client: AsyncClient,
+        auth_headers: Dict[str, str]
+    ):
+        """Conversation creation should validate project ObjectId format"""
+        response = await api_client.post(
+            "/api/v1/chat/conversations",
+            json={"project_id": "not-an-object-id"},
+            headers=auth_headers
+        )
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_update_conversation_title_invalid_id(
+        self,
+        api_client: AsyncClient,
+        auth_headers: Dict[str, str]
+    ):
+        """Title update should validate conversation ObjectId format"""
+        response = await api_client.patch(
+            "/api/v1/chat/conversations/not-an-object-id/title",
+            params={"title": "Updated title"},
+            headers=auth_headers
+        )
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_get_project_conversations_invalid_project_id(
+        self,
+        api_client: AsyncClient,
+        auth_headers: Dict[str, str]
+    ):
+        """Project conversation list should validate ObjectId format"""
+        response = await api_client.get(
+            "/api/v1/chat/projects/not-an-object-id/conversations",
+            headers=auth_headers
+        )
+        assert response.status_code == 400
+
+    @pytest.mark.asyncio
+    async def test_check_project_context_invalid_project_id(
+        self,
+        api_client: AsyncClient,
+        auth_headers: Dict[str, str]
+    ):
+        """Context availability check should validate ObjectId format"""
+        response = await api_client.get(
+            "/api/v1/chat/projects/not-an-object-id/context-check",
+            headers=auth_headers
+        )
+        assert response.status_code == 400

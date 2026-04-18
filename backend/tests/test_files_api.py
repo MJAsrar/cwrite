@@ -365,3 +365,74 @@ class TestFilesAPI:
         
         # Should be forbidden (403) but API might return 401 for unauthorized access
         assert response.status_code in [401, 403]
+
+    @pytest.mark.asyncio
+    async def test_get_file_metadata_unauthorized(self, api_client: AsyncClient):
+        """File metadata endpoint should require authentication"""
+        response = await api_client.get("/api/v1/files/507f1f77bcf86cd799439011")
+        assert response.status_code in [401, 403]
+
+    @pytest.mark.asyncio
+    async def test_get_file_metadata_not_found(
+        self,
+        api_client: AsyncClient,
+        auth_headers: Dict[str, str]
+    ):
+        """Metadata endpoint should return 404 for unknown file ID"""
+        response = await api_client.get(
+            "/api/v1/files/507f1f77bcf86cd799439011",
+            headers=auth_headers
+        )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_get_file_content_not_found(
+        self,
+        api_client: AsyncClient,
+        auth_headers: Dict[str, str]
+    ):
+        """Content endpoint should return 404 for unknown file ID"""
+        response = await api_client.get(
+            "/api/v1/files/507f1f77bcf86cd799439011/content",
+            headers=auth_headers
+        )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_delete_file_not_found(
+        self,
+        api_client: AsyncClient,
+        auth_headers: Dict[str, str]
+    ):
+        """Delete endpoint should return 404 for unknown file ID"""
+        response = await api_client.delete(
+            "/api/v1/files/507f1f77bcf86cd799439011",
+            headers=auth_headers
+        )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_reprocess_file_not_found(
+        self,
+        api_client: AsyncClient,
+        auth_headers: Dict[str, str]
+    ):
+        """Reprocess endpoint should return 404 for unknown file ID"""
+        response = await api_client.post(
+            "/api/v1/files/507f1f77bcf86cd799439011/reprocess",
+            headers=auth_headers
+        )
+        assert response.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_get_project_file_stats_not_found(
+        self,
+        api_client: AsyncClient,
+        auth_headers: Dict[str, str]
+    ):
+        """File stats endpoint should return 404 for unknown project ID"""
+        response = await api_client.get(
+            "/api/v1/projects/507f1f77bcf86cd799439011/files/stats",
+            headers=auth_headers
+        )
+        assert response.status_code == 404
