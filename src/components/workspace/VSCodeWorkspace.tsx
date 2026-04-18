@@ -14,14 +14,14 @@ import {
   Plus,
   Upload,
   ChevronLeft,
-  ChevronRight,
   Maximize2,
-  Type,
   Sparkles,
   Loader2,
-  MoreVertical
+  FilePlus,
+  X,
+  CheckCircle2,
+  AlertCircle
 } from 'lucide-react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import TextEditor from './TextEditor';
 import AIChatPanel from './AIChatPanel';
@@ -43,6 +43,21 @@ interface VSCodeWorkspaceProps {
 }
 
 type ThemeKey = 'sepia' | 'dark' | 'light';
+type TypographyPresetKey = 'serif' | 'sans' | 'mono';
+type TypographyCaseKey = 'default' | 'capitalize' | 'uppercase' | 'lowercase';
+
+const TYPOGRAPHY_PRESETS: Record<TypographyPresetKey, { label: string; fontFamily: string }> = {
+  serif: { label: 'Serif', fontFamily: "'Crimson Pro', 'Georgia', 'Cambria', serif" },
+  sans: { label: 'Sans', fontFamily: "'Inter', 'system-ui', sans-serif" },
+  mono: { label: 'Mono', fontFamily: "'JetBrains Mono', 'Consolas', 'Monaco', monospace" }
+};
+
+const TYPOGRAPHY_CASES: Record<TypographyCaseKey, { label: string }> = {
+  default: { label: 'Default' },
+  capitalize: { label: 'Capital First Letters' },
+  uppercase: { label: 'UPPERCASE' },
+  lowercase: { label: 'lowercase' }
+};
 
 const THEME_CLASSES: Record<ThemeKey, { bg: string; text: string; border: string; sidebar: string; rail: string; hover: string; muted: string }> = {
   sepia: {
@@ -93,16 +108,26 @@ export default function VSCodeWorkspace({
   const [showRelationshipsModal, setShowRelationshipsModal] = useState(false);
   const [chatContext, setChatContext] = useState<any>(null);
   const [focusMode, setFocusMode] = useState(false);
-  const [showLeaveModal, setShowLeaveModal] = useState(false);
-  const [pendingDestination, setPendingDestination] = useState<string | null>(null);
-  const [isLeaving, setIsLeaving] = useState(false);
-  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
-  const [saveMessage, setSaveMessage] = useState<string>('');
   const [showNewFileInput, setShowNewFileInput] = useState(false);
   const [newFileName, setNewFileName] = useState('');
   const [isCreatingFile, setIsCreatingFile] = useState(false);
+  const [showPlusMenu, setShowPlusMenu] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(false);
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  const [saveMessage, setSaveMessage] = useState<string>('');
   const [noticeMessage, setNoticeMessage] = useState<string>('');
-  const autoSaveEnabled = false;
+  const [onlinePhase, setOnlinePhase] = useState<'label' | 'transition' | 'dot'>('label');
+  const [showTypographyMenu, setShowTypographyMenu] = useState(false);
+  const [typographyPreset, setTypographyPreset] = useState<TypographyPresetKey>('serif');
+  const [selectionTypographyPreset, setSelectionTypographyPreset] = useState<TypographyPresetKey>('serif');
+  const [typographyCase, setTypographyCase] = useState<TypographyCaseKey>('default');
+  const [typographyFontSize, setTypographyFontSize] = useState(18);
+  const [hasTextSelection, setHasTextSelection] = useState(false);
+  const [selectionFontSize, setSelectionFontSize] = useState(18);
+  const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [isLeaving, setIsLeaving] = useState(false);
+  const [pendingDestination, setPendingDestination] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const editorRef = useRef<any>(null);
   const newFileInputRef = useRef<HTMLInputElement>(null);
@@ -142,6 +167,129 @@ export default function VSCodeWorkspace({
       return () => clearInterval(interval);
     }
   }, [files, onRefresh]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = localStorage.getItem('cowrite-autosave-enabled');
+    setAutoSaveEnabled(stored === 'true');
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = localStorage.getItem(`cowrite-typography:${project.id}`);
+    if (!stored) return;
+
+    try {
+      const parsed = JSON.parse(stored) as Partial<{
+        preset: TypographyPresetKey;
+        selectionPreset: TypographyPresetKey;
+        textCase: TypographyCaseKey;
+        fontSize: number;
+      }>;
+      if (parsed.preset && TYPOGRAPHY_PRESETS[parsed.preset]) setTypographyPreset(parsed.preset);
+      if (parsed.selectionPreset && TYPOGRAPHY_PRESETS[parsed.selectionPreset]) setSelectionTypographyPreset(parsed.selectionPreset);
+      if (parsed.textCase && TYPOGRAPHY_CASES[parsed.textCase]) setTypographyCase(parsed.textCase);
+      if (typeof parsed.fontSize === 'number') setTypographyFontSize(parsed.fontSize);
+    } catch {
+      // Ignore malformed saved typography preferences.
+    }
+  }, [project.id]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem(
+      `cowrite-typography:${project.id}`,
+      JSON.stringify({
+        preset: typographyPreset,
+        selectionPreset: selectionTypographyPreset,
+        textCase: typographyCase,
+        fontSize: typographyFontSize
+      })
+    );
+  }, [project.id, typographyPreset, selectionTypographyPreset, typographyCase, typographyFontSize]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    if (selectedFile) {
+      localStorage.setItem(lastOpenFileKey, selectedFile.id);
+      return;
+    }
+
+    const rememberedFileId = localStorage.getItem(lastOpenFileKey);
+    if (rememberedFileId) {
+      const rememberedFile = files.find((f) => f.id === rememberedFileId);
+      if (rememberedFile) {
+        setSelectedFile(rememberedFile);
+      }
+    }
+  }, [selectedFile, files, lastOpenFileKey]);
+
+  useEffect(() => {
+    if (!selectedFile) return;
+    const updatedSelectedFile = files.find((f) => f.id === selectedFile.id);
+    if (updatedSelectedFile && updatedSelectedFile !== selectedFile) {
+      setSelectedFile(updatedSelectedFile);
+      activeFileIdRef.current = updatedSelectedFile.id;
+    }
+  }, [files, selectedFile]);
+
+  useEffect(() => {
+    if (selectedFile?.id) {
+      activeFileIdRef.current = selectedFile.id;
+    }
+  }, [selectedFile?.id]);
+
+  useEffect(() => {
+    if (!saveMessage && !noticeMessage) return;
+    const timer = window.setTimeout(() => {
+      setSaveMessage('');
+      setNoticeMessage('');
+      if (saveState !== 'saving') {
+        setSaveState('idle');
+      }
+    }, 2800);
+    return () => window.clearTimeout(timer);
+  }, [saveMessage, noticeMessage, saveState]);
+
+  useEffect(() => {
+    setOnlinePhase('label');
+    const transitionTimer = window.setTimeout(() => {
+      setOnlinePhase('transition');
+    }, 2000);
+
+    const dotTimer = window.setTimeout(() => {
+      setOnlinePhase('dot');
+    }, 2325);
+
+    return () => {
+      window.clearTimeout(transitionTimer);
+      window.clearTimeout(dotTimer);
+    };
+  }, [project.id]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      const hasPendingDrafts = editorRef.current?.hasPendingDrafts?.() || hasUnsavedChanges;
+      if (!hasPendingDrafts) return;
+
+      event.preventDefault();
+      event.returnValue = '';
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  const handleNavigateAway = (destination: string) => {
+    const hasPendingDrafts = editorRef.current?.hasPendingDrafts?.() || hasUnsavedChanges;
+    if (hasPendingDrafts) {
+      setPendingDestination(destination);
+      setShowLeaveModal(true);
+      return;
+    }
+    router.push(destination);
+  };
 
   const handleLeaveWithSave = async () => {
     const destination = pendingDestination;
@@ -250,10 +398,12 @@ export default function VSCodeWorkspace({
 
   const handleFileSave = async (content: string, newFilename?: string) => {
     try {
-      if (selectedFile) {
-        await api.put(`/api/v1/files/${selectedFile.id}`, { text_content: content });
-        alert('File saved successfully!');
-        await onRefresh();
+      const currentEditorState = editorRef.current?.getEditorState?.();
+      const targetFileId = selectedFile?.id || currentEditorState?.fileId || activeFileIdRef.current;
+
+      if (targetFileId) {
+        await api.put(`/api/v1/files/${targetFileId}`, { text_content: content });
+        return;
       } else if (newFilename) {
         const blob = new Blob([content], { type: 'text/plain' });
         const file = new File([blob], newFilename, { type: 'text/plain' });
@@ -263,7 +413,76 @@ export default function VSCodeWorkspace({
         throw new Error('No active file selected to save. Please select a file and try again.');
       }
     } catch (error: any) {
-      alert(error?.response?.data?.detail || error?.message || 'Failed to save');
+      throw new Error(
+        error?.response?.data?.detail ||
+        error?.detail ||
+        error?.message ||
+        'Failed to save'
+      );
+    }
+  };
+
+  const handleAutoSaveToggle = () => {
+    const next = !autoSaveEnabled;
+    setAutoSaveEnabled(next);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('cowrite-autosave-enabled', String(next));
+    }
+    setNoticeMessage(next ? 'Auto Save enabled' : 'Auto Save disabled');
+  };
+
+  const applySelectionTypography = (
+    action: 'capitalize' | 'uppercase' | 'lowercase' | 'title' | 'bold' | 'italic',
+    label: string
+  ) => {
+    const applied = editorRef.current?.applyTypographyToSelection?.(action);
+    if (applied) {
+      setNoticeMessage(`${label} applied to selected text.`);
+    } else {
+      setNoticeMessage('Select text first to apply typography.');
+    }
+  };
+
+  const handleFontSizeDecrease = () => {
+    if (hasTextSelection) {
+      const next = Math.max(14, selectionFontSize - 1);
+      const applied = editorRef.current?.applyFontSizeToSelection?.(next);
+      if (applied) {
+        setSelectionFontSize(next);
+        setNoticeMessage('Font-size of selected text updated.');
+      } else {
+        setNoticeMessage('Select text first to apply typography.');
+      }
+      return;
+    }
+
+    setTypographyFontSize((size: number) => Math.max(14, size - 1));
+  };
+
+  const handleFontSizeIncrease = () => {
+    if (hasTextSelection) {
+      const next = Math.min(28, selectionFontSize + 1);
+      const applied = editorRef.current?.applyFontSizeToSelection?.(next);
+      if (applied) {
+        setSelectionFontSize(next);
+        setNoticeMessage('Font-size of selected text updated.');
+      } else {
+        setNoticeMessage('Select text first to apply typography.');
+      }
+      return;
+    }
+
+    setTypographyFontSize((size: number) => Math.min(28, size + 1));
+  };
+
+  const applySelectedFontFamily = (key: TypographyPresetKey) => {
+    const preset = TYPOGRAPHY_PRESETS[key];
+    const applied = editorRef.current?.applyFontFamilyToSelection?.(preset.fontFamily, key);
+    if (applied) {
+      setSelectionTypographyPreset(key);
+      setNoticeMessage('Font family applied to selected text.');
+    } else {
+      setNoticeMessage('Select text first to apply font family.');
     }
   };
 
@@ -291,6 +510,22 @@ export default function VSCodeWorkspace({
   };
 
   const genreLabel = (project as any)?.settings?.genre || '';
+  const typographyFamily = TYPOGRAPHY_PRESETS[typographyPreset].fontFamily;
+  const typographyCaseLabel = TYPOGRAPHY_CASES[typographyCase].label;
+  const toastTone =
+    saveState === 'error'
+      ? 'border-red-200 bg-red-50/95 text-red-700'
+      : saveState === 'saved'
+        ? 'border-emerald-200 bg-emerald-50/95 text-emerald-700'
+        : saveState === 'saving'
+          ? 'border-indigo-200 bg-indigo-50/95 text-indigo-700'
+          : 'border-stone-200 bg-stone-50/95 text-stone-700';
+  const autoSaveOffTone =
+    theme === 'dark'
+      ? 'bg-zinc-900 text-zinc-300 border-zinc-700 hover:bg-zinc-800'
+      : theme === 'light'
+        ? 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+        : 'bg-[#FBF5E8] text-[#5C4B37] border-stone-200 hover:bg-[#F5EBDA]';
 
   return (
     <div className={`flex h-screen w-full font-sans transition-colors duration-300 ${t.bg} ${t.text}`}
@@ -299,13 +534,13 @@ export default function VSCodeWorkspace({
       {/* ═══ LEFT NAVIGATION RAIL ═══ */}
       {!focusMode && (
         <aside className={`flex flex-col items-center py-6 space-y-8 border-r ${t.border} ${t.rail} w-16 z-20 flex-shrink-0`}>
-          <Link
-            href="/dashboard"
+          <button
+            onClick={() => handleNavigateAway('/dashboard')}
             className="p-2 rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 hover:bg-indigo-700 transition-colors"
             title="Dashboard"
           >
             <BookOpen size={24} />
-          </Link>
+          </button>
 
           <nav className="flex flex-col space-y-4">
             <NavIcon
@@ -356,14 +591,87 @@ export default function VSCodeWorkspace({
             <h2 className={`font-semibold text-sm tracking-wider uppercase ${t.muted}`}>
               Documents
             </h2>
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className={`p-1.5 rounded-lg transition-colors ${t.hover}`}
-              title="Upload file"
-            >
-              <Plus size={16} />
-            </button>
+            <div className="relative">
+              <button
+                onClick={() => setShowPlusMenu(!showPlusMenu)}
+                className={`p-1.5 rounded-lg transition-colors ${t.hover}`}
+                title="Add file"
+              >
+                <Plus size={16} />
+              </button>
+              {showPlusMenu && (
+                <>
+                  <div className="fixed inset-0 z-30" onClick={() => setShowPlusMenu(false)} />
+                  <div className={`absolute right-0 top-full mt-1 w-44 rounded-xl shadow-lg border z-40 py-1 ${
+                    theme === 'dark' ? 'bg-zinc-800 border-zinc-700' : 'bg-white border-stone-200'
+                  }`}>
+                    <button
+                      onClick={() => {
+                        setShowPlusMenu(false);
+                        setShowNewFileInput(true);
+                        setNewFileName('');
+                      }}
+                      className={`flex items-center w-full px-3 py-2 text-sm gap-2 transition-colors ${
+                        theme === 'dark' ? 'text-zinc-200 hover:bg-zinc-700' : 'text-stone-700 hover:bg-stone-100'
+                      }`}
+                    >
+                      <FilePlus size={15} />
+                      New File
+                    </button>
+                    <button
+                      onClick={() => {
+                        setShowPlusMenu(false);
+                        fileInputRef.current?.click();
+                      }}
+                      className={`flex items-center w-full px-3 py-2 text-sm gap-2 transition-colors ${
+                        theme === 'dark' ? 'text-zinc-200 hover:bg-zinc-700' : 'text-stone-700 hover:bg-stone-100'
+                      }`}
+                    >
+                      <Upload size={15} />
+                      Upload File
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
+
+          {/* New File Inline Input */}
+          {showNewFileInput && (
+            <div className={`mx-3 mb-3 p-2 rounded-lg border ${
+              theme === 'dark' ? 'bg-zinc-800 border-zinc-700' : 'bg-stone-50 border-stone-200'
+            }`}>
+              <div className="flex items-center gap-2">
+                <FilePlus size={14} className={t.muted} />
+                <input
+                  ref={newFileInputRef}
+                  type="text"
+                  value={newFileName}
+                  onChange={(e) => setNewFileName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreateNewFile();
+                    if (e.key === 'Escape') { setShowNewFileInput(false); setNewFileName(''); }
+                  }}
+                  placeholder="chapter-1.txt"
+                  className={`flex-1 text-sm bg-transparent outline-none placeholder:opacity-40 ${
+                    theme === 'dark' ? 'text-zinc-200' : 'text-stone-800'
+                  }`}
+                  disabled={isCreatingFile}
+                />
+                {isCreatingFile ? (
+                  <Loader2 size={14} className="animate-spin" />
+                ) : (
+                  <button
+                    onClick={() => { setShowNewFileInput(false); setNewFileName(''); }}
+                    className={`p-0.5 rounded ${t.hover}`}
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+              <p className={`text-[10px] mt-1.5 ${t.muted}`}>Press Enter to create · Esc to cancel</p>
+            </div>
+          )}
 
           <input
             ref={fileInputRef}
@@ -375,21 +683,39 @@ export default function VSCodeWorkspace({
           />
 
           <div className="flex-1 overflow-y-auto px-3 custom-scrollbar">
-            <EnhancedFileTree
-              files={files}
-              selectedFileId={selectedFile?.id}
-              onFileSelect={(fileId) => {
-                const file = files.find(f => f.id === fileId);
-                if (file) handleFileSelect(file);
-              }}
-              onFileDelete={async (fileId) => {
-                await onFileDelete(fileId);
-                if (selectedFile?.id === fileId) setSelectedFile(null);
-                await onRefresh();
-              }}
-              onFileUpload={onFileUpload}
-              theme={theme}
-            />
+            {files.length === 0 && !showNewFileInput ? (
+              <div className="text-center py-10 px-4">
+                <FileText className={`w-10 h-10 mx-auto mb-3 opacity-20`} />
+                <p className={`text-sm font-medium mb-1 opacity-60`}>No files yet</p>
+                <p className={`text-xs mb-4 opacity-40`}>Create a new file to start writing</p>
+                <button
+                  onClick={() => { setShowNewFileInput(true); setNewFileName(''); }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+                >
+                  <FilePlus size={13} />
+                  Create New File
+                </button>
+              </div>
+            ) : (
+              <EnhancedFileTree
+                files={files}
+                selectedFileId={selectedFile?.id}
+                onFileSelect={(fileId) => {
+                  const file = files.find(f => f.id === fileId);
+                  if (file) handleFileSelect(file);
+                }}
+                onFileDelete={async (fileId) => {
+                  await onFileDelete(fileId);
+                  if (selectedFile?.id === fileId) {
+                    setSelectedFile(null);
+                    activeFileIdRef.current = null;
+                  }
+                  await onRefresh();
+                }}
+                onFileUpload={onFileUpload}
+                theme={theme}
+              />
+            )}
           </div>
         </div>
       )}
@@ -415,22 +741,264 @@ export default function VSCodeWorkspace({
                 <span className="font-semibold text-sm">
                   {selectedFile?.filename || 'No file selected'}
                 </span>
+                {hasUnsavedChanges && (
+                  <span className="text-[11px] text-amber-600 font-semibold">Unsaved changes</span>
+                )}
               </div>
             </div>
 
             <div className="flex items-center space-x-2">
+              <div
+                className={`h-8 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 text-xs font-semibold flex items-center overflow-hidden will-change-[width,padding,opacity,transform] ${
+                  onlinePhase === 'label'
+                    ? 'px-3 gap-1.5 w-auto transition-all duration-300 ease-out'
+                    : onlinePhase === 'transition'
+                      ? 'px-1.5 gap-1 w-8 transition-all duration-300 ease-in-out'
+                      : 'px-0 gap-0 w-8 justify-center transition-all duration-200 ease-in'
+                }`}
+                title="Connection status"
+              >
+                <span className={`h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_0_rgba(16,185,129,0.35)] animate-pulse transition-transform duration-300 ${onlinePhase === 'dot' ? 'translate-x-0' : 'translate-x-0'}`} />
+                <span className={`whitespace-nowrap overflow-hidden origin-left transition-all duration-300 ease-in-out ${
+                  onlinePhase === 'label'
+                    ? 'opacity-100 max-w-[72px] translate-x-0'
+                    : onlinePhase === 'transition'
+                      ? 'opacity-0 max-w-0 -translate-x-1'
+                      : 'opacity-0 max-w-0 -translate-x-2'
+                }`}>
+                  ONLINE
+                </span>
+              </div>
+
+              <button
+                className={`h-8 px-2.5 rounded-md border text-xs font-semibold transition-colors duration-200 ${
+                  autoSaveEnabled
+                    ? 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:bg-indigo-100'
+                    : autoSaveOffTone
+                }`}
+                onClick={handleAutoSaveToggle}
+                title="Toggle Auto Save"
+              >
+                Auto Save {autoSaveEnabled ? 'ON' : 'OFF'}
+              </button>
+
+              {saveState === 'saving' && (
+                <div className="px-2.5 py-1 rounded-full bg-blue-500/10 text-blue-600 text-xs font-semibold border border-blue-500/20 flex items-center gap-1.5">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Saving...
+                </div>
+              )}
+              {saveState === 'saved' && (
+                <div className="px-2.5 py-1 rounded-full bg-emerald-500/10 text-emerald-600 text-xs font-semibold border border-emerald-500/20 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3" />
+                  Saved
+                </div>
+              )}
+              {saveState === 'error' && (
+                <div className="px-2.5 py-1 rounded-full bg-red-500/10 text-red-600 text-xs font-semibold border border-red-500/20 flex items-center gap-1.5">
+                  <AlertCircle className="w-3 h-3" />
+                  Save failed
+                </div>
+              )}
+
               {files.filter(f => f.processing_status === 'processing').length > 0 && (
                 <div className="px-3 py-1 rounded-full bg-amber-500/10 text-amber-600 text-xs font-bold border border-amber-500/20 flex items-center gap-1.5">
                   <Loader2 className="w-3 h-3 animate-spin" />
                   PROCESSING
                 </div>
               )}
-              <div className="px-3 py-1 rounded-full bg-green-500/10 text-green-600 text-xs font-bold border border-green-500/20">
-                ONLINE
+              <div className="relative">
+                <button
+                  className={`h-8 w-8 inline-flex items-center justify-center rounded-md transition-colors duration-200 ${showTypographyMenu ? 'text-indigo-600' : t.muted} ${t.hover}`}
+                  onClick={() => setShowTypographyMenu(v => !v)}
+                  title="Typography"
+                >
+                  <span className="text-[15px] font-semibold leading-none">T</span>
+                </button>
+
+                {showTypographyMenu && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setShowTypographyMenu(false)} />
+                    <div className={`absolute right-0 top-full mt-2 z-40 w-[26rem] max-h-[70vh] rounded-xl border shadow-xl p-3 overflow-hidden ${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : theme === 'light' ? 'bg-white border-gray-200' : 'bg-[#FFF9EF] border-stone-200'}`}>
+                      <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <p className={`text-xs font-semibold uppercase tracking-wider ${t.muted}`}>Typography</p>
+                          <p className="text-sm font-medium">Select Preference</p>
+                        </div>
+                        <button
+                          onClick={() => setShowTypographyMenu(false)}
+                          className={`p-1.5 rounded-md ${t.hover}`}
+                          title="Close typography menu"
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+
+                      <div className="space-y-3 max-h-[60vh] overflow-y-auto pr-1">
+                        <div>
+                          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-2 ${t.muted}`}>Selected text</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => applySelectionTypography('capitalize', 'Capital first')}
+                              className="rounded-md border px-2.5 py-2 text-xs font-medium transition-colors bg-white text-stone-700 border-stone-200 hover:bg-stone-50"
+                            >
+                              Capital First
+                            </button>
+                            <button
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => applySelectionTypography('uppercase', 'Uppercase')}
+                              className="rounded-md border px-2.5 py-2 text-xs font-medium transition-colors bg-white text-stone-700 border-stone-200 hover:bg-stone-50"
+                            >
+                              UPPERCASE
+                            </button>
+                            <button
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => applySelectionTypography('lowercase', 'Lowercase')}
+                              className="rounded-md border px-2.5 py-2 text-xs font-medium transition-colors bg-white text-stone-700 border-stone-200 hover:bg-stone-50"
+                            >
+                              lowercase
+                            </button>
+                            <button
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => applySelectionTypography('title', 'Title case')}
+                              className="rounded-md border px-2.5 py-2 text-xs font-medium transition-colors bg-white text-stone-700 border-stone-200 hover:bg-stone-50"
+                            >
+                              Title Case
+                            </button>
+                            <button
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => applySelectionTypography('bold', 'Bold style')}
+                              className="rounded-md border px-2.5 py-2 text-xs font-medium transition-colors bg-white text-stone-700 border-stone-200 hover:bg-stone-50"
+                            >
+                              Bold
+                            </button>
+                            <button
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => applySelectionTypography('italic', 'Italic style')}
+                              className="rounded-md border px-2.5 py-2 text-xs font-medium transition-colors bg-white text-stone-700 border-stone-200 hover:bg-stone-50"
+                            >
+                              Italic
+                            </button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-2 ${t.muted}`}>Text case</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {(Object.entries(TYPOGRAPHY_CASES) as Array<[TypographyCaseKey, { label: string }]>)
+                              .map(([key, option]) => (
+                                <button
+                                  key={key}
+                                  onClick={() => setTypographyCase(key)}
+                                  className={`rounded-md border px-2.5 py-2 text-xs font-medium transition-colors ${
+                                    typographyCase === key
+                                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                      : theme === 'dark'
+                                        ? 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700'
+                                        : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                                  }`}
+                                >
+                                  {option.label}
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-2 ${t.muted}`}>Selected text font family</p>
+                          <div className="grid grid-cols-3 gap-2">
+                            {(Object.entries(TYPOGRAPHY_PRESETS) as Array<[TypographyPresetKey, { label: string; fontFamily: string }]>)
+                              .map(([key, preset]) => (
+                                <button
+                                  key={`selected-${key}`}
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => applySelectedFontFamily(key)}
+                                  className={`rounded-md border px-2.5 py-2 text-xs font-medium transition-colors ${
+                                    selectionTypographyPreset === key
+                                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                      : theme === 'dark'
+                                        ? 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700'
+                                        : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                                  }`}
+                                >
+                                  <span className="block" style={{ fontFamily: preset.fontFamily }}>
+                                    {preset.label}
+                                  </span>
+                                </button>
+                              ))}
+                          </div>
+                          <p className={`mt-2 text-[10px] ${t.muted}`}>Applies only to the currently selected text.</p>
+                        </div>
+
+                        <div>
+                          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-2 ${t.muted}`}>General text font family</p>
+                          <div className="grid grid-cols-3 gap-2">
+                            {(Object.entries(TYPOGRAPHY_PRESETS) as Array<[TypographyPresetKey, { label: string; fontFamily: string }]>)
+                              .map(([key, preset]) => (
+                                <button
+                                  key={key}
+                                  onClick={() => setTypographyPreset(key)}
+                                  className={`rounded-md border px-2.5 py-2 text-xs font-medium transition-colors ${
+                                    typographyPreset === key
+                                      ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
+                                      : theme === 'dark'
+                                        ? 'bg-zinc-800 text-zinc-300 border-zinc-700 hover:bg-zinc-700'
+                                        : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-50'
+                                  }`}
+                                >
+                                  <span className="block" style={{ fontFamily: preset.fontFamily }}>
+                                    {preset.label}
+                                  </span>
+                                </button>
+                              ))}
+                          </div>
+                        </div>
+
+                        <div>
+                          <p className={`text-[11px] font-semibold uppercase tracking-wider mb-2 ${t.muted}`}>
+                            {hasTextSelection ? 'font-size of selected text' : 'font-size of entire file'}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <button
+                              onClick={handleFontSizeDecrease}
+                              className={`h-8 w-8 rounded-md border ${t.hover}`}
+                              title="Decrease font size"
+                            >
+                              <span className="text-base leading-none">−</span>
+                            </button>
+                            <div className={`flex-1 h-8 rounded-md border px-3 flex items-center justify-center text-sm font-semibold ${theme === 'dark' ? 'bg-zinc-800 border-zinc-700 text-zinc-200' : 'bg-white border-stone-200 text-stone-700'}`}>
+                              {hasTextSelection ? selectionFontSize : typographyFontSize}px
+                            </div>
+                            <button
+                              onClick={handleFontSizeIncrease}
+                              className={`h-8 w-8 rounded-md border ${t.hover}`}
+                              title="Increase font size"
+                            >
+                              <span className="text-base leading-none">+</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <button
+                            onClick={() => {
+                              setTypographyPreset('serif');
+                              setSelectionTypographyPreset('serif');
+                              setTypographyCase('default');
+                              setTypographyFontSize(18);
+                            }}
+                            className="text-xs font-semibold text-indigo-600 hover:text-indigo-700"
+                          >
+                            Reset
+                          </button>
+                          <p className={`text-[11px] ${t.muted}`}>Applied instantly</p>
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
-              <button className={`p-2 rounded-md ${t.hover}`} title="Typography">
-                <Type size={18} />
-              </button>
               <button
                 className={`p-2 rounded-md ${t.hover}`}
                 onClick={() => setFocusMode(true)}
@@ -448,6 +1016,31 @@ export default function VSCodeWorkspace({
           file={selectedFile || undefined}
           projectId={project.id}
           onSave={handleFileSave}
+          onDirtyChange={setHasUnsavedChanges}
+          onSaveStateChange={(state, message, source) => {
+            if (source === 'auto' && state !== 'error') {
+              return;
+            }
+            setSaveState(state);
+            if (message) {
+              setSaveMessage(message);
+            }
+          }}
+          autoSave={autoSaveEnabled}
+          fontSize={typographyFontSize}
+          fontFamily={typographyFamily}
+          textCase={typographyCase}
+          onSelectionStateChange={(hasSelection) => {
+            setHasTextSelection(hasSelection);
+            if (hasSelection) {
+              setSelectionFontSize(typographyFontSize);
+            }
+          }}
+          onNewFile={() => {
+            setShowNewFileInput(true);
+            setNewFileName('');
+            if (!isSidebarOpen) setIsSidebarOpen(true);
+          }}
           onAddToChat={(context) => {
             setChatContext(context);
             if (!isAiOpen) setIsAiOpen(true);
@@ -456,6 +1049,17 @@ export default function VSCodeWorkspace({
           focusMode={focusMode}
           onExitFocus={() => setFocusMode(false)}
         />
+
+        {(saveMessage || noticeMessage) && (
+          <div className="absolute bottom-12 right-6 z-20">
+            <div className={`rounded-md border shadow-lg px-3.5 py-2.5 text-xs font-medium backdrop-blur-sm transition-all duration-300 ${toastTone}`}>
+              <div className="flex items-center gap-2">
+                {saveState === 'error' ? <AlertCircle className="w-3.5 h-3.5" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                <span>{saveMessage || noticeMessage}</span>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* ═══ THE MUSE — AI SIDEBAR ═══ */}
