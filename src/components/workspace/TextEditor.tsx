@@ -42,7 +42,7 @@ interface TextEditorProps {
     startColumn: number;
     endColumn: number;
   }) => void;
-  theme?: 'sepia' | 'dark' | 'light';
+  theme?: 'sepia' | 'dark' | 'light' | 'teal';
   focusMode?: boolean;
   onExitFocus?: () => void;
   autoSave?: boolean;
@@ -95,6 +95,22 @@ const MONACO_THEMES = {
       'scrollbarSlider.background': '#C0C0C044',
       'scrollbarSlider.hoverBackground': '#AAAAAA77',
       'scrollbarSlider.activeBackground': '#999999AA'
+    }
+  },
+  teal: {
+    base: 'vs' as const,
+    colors: {
+      'editor.background': '#F7FFFE',
+      'editor.foreground': '#0B7D78',
+      'editor.lineHighlightBackground': '#EAFBF8',
+      'editor.selectionBackground': '#CFEFEB',
+      'editorLineNumber.foreground': '#A4CCC9',
+      'editorLineNumber.activeForeground': '#34AAA4',
+      'editorCursor.foreground': '#0A8F8A',
+      'scrollbar.shadow': '#00000000',
+      'scrollbarSlider.background': '#BFEAE644',
+      'scrollbarSlider.hoverBackground': '#98DCD477',
+      'scrollbarSlider.activeBackground': '#72C9C2AA'
     }
   }
 };
@@ -718,10 +734,10 @@ const TextEditor = forwardRef(function TextEditor(
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center max-w-md px-8">
           <Feather className="w-16 h-16 mx-auto mb-6 opacity-20" />
-          <h2 className="text-2xl mb-3 font-serif italic opacity-70">
+          <h2 className={`text-2xl mb-3 font-serif italic opacity-90 ${theme === 'teal' ? 'text-[#0A8F8A]' : ''}`}>
             What are we writing today?
           </h2>
-          <p className="text-sm opacity-40 mb-6">
+          <p className={`text-sm opacity-70 mb-6 ${theme === 'teal' ? 'text-[#21B9B3]' : ''}`}>
             Select a file from the sidebar, or create a new one to start writing
           </p>
           {onNewFile && (
@@ -811,7 +827,7 @@ const TextEditor = forwardRef(function TextEditor(
       )}
 
       {/* Stats footer */}
-      <footer className={`h-10 px-6 flex items-center justify-between text-[11px] font-medium opacity-50 border-t ${theme === 'dark' ? 'border-zinc-800' : theme === 'sepia' ? 'border-stone-200' : 'border-gray-200'
+      <footer className={`h-10 px-6 flex items-center justify-between text-[11px] font-medium opacity-50 border-t ${theme === 'dark' ? 'border-zinc-800' : theme === 'sepia' ? 'border-stone-200' : theme === 'teal' ? 'border-[#BFEAE6]' : 'border-gray-200'
         }`}>
         <div className="flex items-center space-x-4">
           <span>{content.length} characters</span>

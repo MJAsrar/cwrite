@@ -10,7 +10,7 @@ interface EnhancedFileTreeProps {
   onFileSelect: (fileId: string) => void;
   onFileDelete: (fileId: string) => Promise<void>;
   onFileUpload: (files: File[], folderId?: string) => Promise<void>;
-  theme?: 'sepia' | 'dark' | 'light';
+  theme?: 'sepia' | 'dark' | 'light' | 'teal';
 }
 
 export default function EnhancedFileTree({
@@ -18,6 +18,7 @@ export default function EnhancedFileTree({
 }: EnhancedFileTreeProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file: ProjectFile } | null>(null);
   const isDark = theme === 'dark';
+  const isTeal = theme === 'teal';
 
   return (
     <div className="space-y-1">
@@ -46,7 +47,7 @@ export default function EnhancedFileTree({
               ) : (
                 <FileText size={16} className={`flex-shrink-0 ${isSelected ? 'text-indigo-500' : 'opacity-40'}`} />
               )}
-              <span className="text-sm font-medium truncate">{file.filename}</span>
+              <span className={`text-sm font-medium truncate ${isTeal ? 'text-[#0A8F8A]' : ''}`}>{file.filename}</span>
             </div>
             <MoreVertical size={14} className="opacity-0 group-hover:opacity-40 flex-shrink-0" />
           </div>
@@ -56,7 +57,7 @@ export default function EnhancedFileTree({
       {files.length === 0 && (
         <div className="text-center py-8 opacity-40">
           <FileText className="w-8 h-8 mx-auto mb-2" />
-          <p className="text-xs">No documents yet</p>
+          <p className={`text-xs ${isTeal ? 'text-[#21B9B3]' : ''}`}>No documents yet</p>
         </div>
       )}
 

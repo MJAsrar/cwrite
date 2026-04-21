@@ -8,7 +8,7 @@ export type Theme = 'light' | 'dark' | 'system';
 interface ThemeContextType {
   theme: Theme;
   setTheme: (theme: Theme) => void;
-  resolvedTheme: 'light' | 'dark';
+  resolvedTheme: ThemeName;
   themeConfig: ThemeConfig;
   isTransitioning: boolean;
   toggleTheme: () => void;
@@ -38,26 +38,27 @@ export function ThemeProvider({
   enableTransitions = true,
 }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>(defaultTheme);
-  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light');
+  const [resolvedTheme, setResolvedTheme] = useState<ThemeName>('light');
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [mounted, setMounted] = useState(false);
 
   // Get current theme configuration
-  const themeConfig = themes[resolvedTheme as ThemeName];
+  const themeConfig = themes[resolvedTheme];
 
   useEffect(() => {
     setMounted(true);
     // Load theme from localStorage on mount
-    const savedTheme = localStorage.getItem(storageKey) as Theme;
-    if (savedTheme === 'light') {
-      setThemeState('light');
-    } else {
-      setThemeState('light');
-      localStorage.setItem(storageKey, 'light');
+    const savedTheme = localStorage.getItem(storageKey) as Theme | null;
+    if (savedTheme === 'light' || savedTheme === 'dark' || savedTheme === 'system') {
+      setThemeState(savedTheme);
+      return;
     }
+
+    setThemeState(defaultTheme);
+    localStorage.setItem(storageKey, defaultTheme);
   }, [storageKey]);
 
-  const applyThemeToDocument = useCallback((resolved: 'light' | 'dark') => {
+  const applyThemeToDocument = useCallback((resolved: ThemeName) => {
     const root = document.documentElement;
     const config = themes[resolved];
     
@@ -73,7 +74,11 @@ export function ThemeProvider({
     // Update meta theme-color for mobile browsers
     const metaThemeColor = document.querySelector('meta[name="theme-color"]');
     if (metaThemeColor) {
-      const bgColor = resolved === 'dark' ? 'oklch(0.145 0 0)' : 'oklch(0.96 0.01 85)';
+      const bgColors: Record<ThemeName, string> = {
+        light: 'oklch(0.96 0.01 85)',
+        dark: 'oklch(0.145 0 0)',
+      };
+      const bgColor = bgColors[resolved];
       metaThemeColor.setAttribute('content', bgColor);
     }
   }, []);
@@ -82,7 +87,9 @@ export function ThemeProvider({
     if (!mounted) return;
 
     const updateResolvedTheme = () => {
-        const resolved: 'light' = 'light';
+      const resolved: ThemeName = theme === 'system'
+        ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+        : theme;
       
       // Handle smooth transitions
       if (enableTransitions && resolvedTheme !== resolved) {
@@ -121,13 +128,19 @@ export function ThemeProvider({
   }, [theme, mounted, enableTransitions, resolvedTheme, applyThemeToDocument]);
 
   const setTheme = useCallback((newTheme: Theme) => {
-    const normalizedTheme: Theme = 'light';
+    const normalizedTheme: Theme =
+      newTheme === 'light' || newTheme === 'dark' || newTheme === 'system'
+        ? newTheme
+        : 'light';
     setThemeState(normalizedTheme);
     localStorage.setItem(storageKey, normalizedTheme);
   }, [storageKey]);
 
   const toggleTheme = useCallback(() => {
-    setTheme('light');
+    const order: Theme[] = ['light', 'dark', 'system'];
+    const currentIndex = order.indexOf(theme);
+    const next = order[(currentIndex + 1) % order.length];
+    setTheme(next);
   }, [setTheme]);
 
   // Don't render until mounted to prevent hydration mismatch

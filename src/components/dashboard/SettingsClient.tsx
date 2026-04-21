@@ -15,7 +15,7 @@ export default function SettingsClient() {
 
   const [email, setEmail] = useState('');
   const [notifications, setNotifications] = useState(true);
-  const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [theme, setTheme] = useState<'light' | 'dark' | 'system'>('light');
   const [language, setLanguage] = useState('en');
 
   useEffect(() => {
@@ -174,11 +174,12 @@ export default function SettingsClient() {
                   <label className="block text-sm font-medium text-stone-700 mb-1.5">Theme</label>
                   <select
                     value={theme}
-                    onChange={(e) => setTheme(e.target.value as 'light' | 'dark')}
+                    onChange={(e) => setTheme(e.target.value as 'light' | 'dark' | 'system')}
                     className="w-full border border-stone-200 bg-white px-4 py-2.5 rounded-lg text-sm text-stone-700 cursor-pointer focus:ring-2 focus:ring-amber-900/20 focus:border-amber-900 outline-none transition-all"
                   >
                     <option value="light">Light</option>
                     <option value="dark">Dark</option>
+                    <option value="system">System</option>
                   </select>
                 </div>
 

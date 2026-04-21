@@ -11,6 +11,7 @@ import {
   Settings,
   Moon,
   Sun,
+  Palette,
   Plus,
   Upload,
   ChevronLeft,
@@ -42,7 +43,7 @@ interface VSCodeWorkspaceProps {
   onRefresh: () => Promise<void>;
 }
 
-type ThemeKey = 'sepia' | 'dark' | 'light';
+type ThemeKey = 'sepia' | 'dark' | 'light' | 'teal';
 type TypographyPresetKey = 'serif' | 'sans' | 'mono';
 type TypographyCaseKey = 'default' | 'capitalize' | 'uppercase' | 'lowercase';
 
@@ -86,6 +87,15 @@ const THEME_CLASSES: Record<ThemeKey, { bg: string; text: string; border: string
     rail: 'bg-gray-50/80',
     hover: 'hover:bg-black/5',
     muted: 'text-gray-400'
+  },
+  teal: {
+    bg: 'bg-[#F7FFFE]',
+    text: 'text-[#0A8F8A]',
+    border: 'border-[#BFEAE6]',
+    sidebar: 'bg-[#E9FFFC]/80',
+    rail: 'bg-[#F7FFFE]/90',
+    hover: 'hover:bg-[#DDF8F4]/80',
+    muted: 'text-[#21B9B3]'
   }
 };
 
@@ -504,10 +514,13 @@ export default function VSCodeWorkspace({
   };
 
   const cycleTheme = () => {
-    const order: ThemeKey[] = ['sepia', 'dark', 'light'];
+    const order: ThemeKey[] = ['sepia', 'dark', 'light', 'teal'];
     const idx = order.indexOf(theme);
     setTheme(order[(idx + 1) % order.length]);
   };
+
+  const themeIcon =
+    theme === 'dark' ? <Sun size={20} /> : theme === 'teal' ? <Palette size={20} /> : <Moon size={20} />;
 
   const genreLabel = (project as any)?.settings?.genre || '';
   const typographyFamily = TYPOGRAPHY_PRESETS[typographyPreset].fontFamily;
@@ -525,6 +538,8 @@ export default function VSCodeWorkspace({
       ? 'bg-zinc-900 text-zinc-300 border-zinc-700 hover:bg-zinc-800'
       : theme === 'light'
         ? 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
+        : theme === 'teal'
+          ? 'bg-[#F0FFFD] text-[#235C5A] border-[#BFEAE6] hover:bg-[#DFF8F5]'
         : 'bg-[#FBF5E8] text-[#5C4B37] border-stone-200 hover:bg-[#F5EBDA]';
 
   return (
@@ -571,7 +586,7 @@ export default function VSCodeWorkspace({
 
           <div className="mt-auto flex flex-col space-y-4 pb-4">
             <NavIcon
-              icon={theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+              icon={themeIcon}
               onClick={cycleTheme}
               title={`Theme: ${theme}`}
             />
@@ -734,11 +749,11 @@ export default function VSCodeWorkspace({
               </button>
               <div className="flex flex-col">
                 {genreLabel && (
-                  <span className={`text-xs font-medium uppercase ${t.muted}`}>
+                  <span className={`text-xs font-medium uppercase ${theme === 'teal' ? t.text : t.muted}`}>
                     {project.name} / {genreLabel}
                   </span>
                 )}
-                <span className="font-semibold text-sm">
+                <span className={`font-semibold text-sm ${theme === 'teal' ? 'text-[#0A8F8A]' : ''}`}>
                   {selectedFile?.filename || 'No file selected'}
                 </span>
                 {hasUnsavedChanges && (
@@ -819,7 +834,7 @@ export default function VSCodeWorkspace({
                 {showTypographyMenu && (
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setShowTypographyMenu(false)} />
-                    <div className={`absolute right-0 top-full mt-2 z-40 w-[26rem] max-h-[70vh] rounded-xl border shadow-xl p-3 overflow-hidden ${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : theme === 'light' ? 'bg-white border-gray-200' : 'bg-[#FFF9EF] border-stone-200'}`}>
+                    <div className={`absolute right-0 top-full mt-2 z-40 w-[26rem] max-h-[70vh] rounded-xl border shadow-xl p-3 overflow-hidden ${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : theme === 'light' ? 'bg-white border-gray-200' : theme === 'teal' ? 'bg-[#F0FFFD] border-[#BFEAE6]' : 'bg-[#FFF9EF] border-stone-200'}`}>
                       <div className="flex items-center justify-between mb-3">
                         <div>
                           <p className={`text-xs font-semibold uppercase tracking-wider ${t.muted}`}>Typography</p>
@@ -1097,7 +1112,7 @@ export default function VSCodeWorkspace({
         <button
           onClick={() => setFocusMode(false)}
           className="fixed top-4 right-4 z-50 p-2.5 rounded-full bg-white/80 dark:bg-zinc-800/80 shadow-lg backdrop-blur-sm transition-all hover:scale-105"
-          style={{ color: theme === 'dark' ? '#E0E0E0' : '#5C4B37' }}
+          style={{ color: theme === 'dark' ? '#E0E0E0' : theme === 'teal' ? '#0A8F8A' : '#5C4B37' }}
           title="Exit Focus Mode (Esc)"
         >
           <Maximize2 size={16} />
