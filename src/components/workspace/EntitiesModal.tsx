@@ -10,7 +10,7 @@ interface EntitiesModalProps {
   isOpen: boolean;
   onClose: () => void;
   onEntityClick?: (entityId: string) => void;
-  theme?: 'sepia' | 'dark' | 'light' | 'teal';
+  theme?: 'sepia' | 'dark' | 'light' | 'teal' | 'rose' | 'harbor';
   projectId?: string;
   files?: ProjectFile[];
   onRefresh?: () => Promise<void>;

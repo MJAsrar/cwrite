@@ -10,7 +10,7 @@ interface EnhancedFileTreeProps {
   onFileSelect: (fileId: string) => void;
   onFileDelete: (fileId: string) => Promise<void>;
   onFileUpload: (files: File[], folderId?: string) => Promise<void>;
-  theme?: 'sepia' | 'dark' | 'light' | 'teal';
+  theme?: 'sepia' | 'dark' | 'light' | 'teal' | 'rose' | 'harbor';
 }
 
 export default function EnhancedFileTree({
@@ -19,6 +19,8 @@ export default function EnhancedFileTree({
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; file: ProjectFile } | null>(null);
   const isDark = theme === 'dark';
   const isTeal = theme === 'teal';
+  const isRose = theme === 'rose';
+  const isHarbor = theme === 'harbor';
 
   return (
     <div className="space-y-1">
@@ -37,17 +39,21 @@ export default function EnhancedFileTree({
             className={`group flex items-center justify-between p-2.5 rounded-xl cursor-pointer transition-all ${isSelected
                 ? isDark
                   ? 'bg-zinc-800'
+                  : isHarbor
+                    ? 'bg-[#26788E]/20 shadow-sm ring-1 ring-[#304C64]/20'
                   : 'bg-white shadow-sm ring-1 ring-black/5'
-                : 'hover:bg-black/5 opacity-60 hover:opacity-100'
+                : isHarbor
+                  ? 'hover:bg-[#26788E]/15 opacity-80 hover:opacity-100'
+                  : 'hover:bg-black/5 opacity-60 hover:opacity-100'
               }`}
           >
             <div className="flex items-center space-x-3 overflow-hidden">
               {isProcessing ? (
                 <Loader2 size={16} className="text-indigo-500 animate-spin flex-shrink-0" />
               ) : (
-                <FileText size={16} className={`flex-shrink-0 ${isSelected ? 'text-indigo-500' : 'opacity-40'}`} />
+                <FileText size={16} className={`flex-shrink-0 ${isSelected ? (isHarbor ? 'text-[#E2480C]' : 'text-indigo-500') : 'opacity-40'}`} />
               )}
-              <span className={`text-sm font-medium truncate ${isTeal ? 'text-[#0A8F8A]' : ''}`}>{file.filename}</span>
+              <span className={`text-sm font-medium truncate ${isTeal ? 'text-[#0A8F8A]' : isRose ? 'text-[#35627A]' : isHarbor ? 'text-[#304C64]' : ''}`}>{file.filename}</span>
             </div>
             <MoreVertical size={14} className="opacity-0 group-hover:opacity-40 flex-shrink-0" />
           </div>
@@ -57,7 +63,7 @@ export default function EnhancedFileTree({
       {files.length === 0 && (
         <div className="text-center py-8 opacity-40">
           <FileText className="w-8 h-8 mx-auto mb-2" />
-          <p className={`text-xs ${isTeal ? 'text-[#21B9B3]' : ''}`}>No documents yet</p>
+          <p className={`text-xs ${isTeal ? 'text-[#21B9B3]' : isRose ? 'text-[#8E9A98]' : isHarbor ? 'text-[#631B08]' : ''}`}>No documents yet</p>
         </div>
       )}
 

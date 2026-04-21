@@ -10,7 +10,7 @@ interface RelationshipsModalProps {
   isOpen: boolean;
   onClose: () => void;
   onRelationshipClick?: (relationshipId: string) => void;
-  theme?: 'sepia' | 'dark' | 'light' | 'teal';
+  theme?: 'sepia' | 'dark' | 'light' | 'teal' | 'rose' | 'harbor';
   projectId?: string;
   onRefresh?: () => Promise<void>;
 }

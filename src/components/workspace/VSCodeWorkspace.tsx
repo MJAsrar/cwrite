@@ -43,7 +43,7 @@ interface VSCodeWorkspaceProps {
   onRefresh: () => Promise<void>;
 }
 
-type ThemeKey = 'sepia' | 'dark' | 'light' | 'teal';
+type ThemeKey = 'sepia' | 'dark' | 'light' | 'teal' | 'rose' | 'harbor';
 type TypographyPresetKey = 'serif' | 'sans' | 'mono';
 type TypographyCaseKey = 'default' | 'capitalize' | 'uppercase' | 'lowercase';
 
@@ -96,6 +96,24 @@ const THEME_CLASSES: Record<ThemeKey, { bg: string; text: string; border: string
     rail: 'bg-[#F7FFFE]/90',
     hover: 'hover:bg-[#DDF8F4]/80',
     muted: 'text-[#21B9B3]'
+  },
+  rose: {
+    bg: 'bg-[#F5F5F5]',
+    text: 'text-[#35627A]',
+    border: 'border-[#8E9A98]',
+    sidebar: 'bg-[#E5AEA9]/20',
+    rail: 'bg-[#F5F5F5]/95',
+    hover: 'hover:bg-[#E5AEA9]/35',
+    muted: 'text-[#B46258]'
+  },
+  harbor: {
+    bg: 'bg-[#A4CCD4]',
+    text: 'text-[#304C64]',
+    border: 'border-[#26788E]',
+    sidebar: 'bg-[#A4CCD4]/80',
+    rail: 'bg-[#A4CCD4]/90',
+    hover: 'hover:bg-[#26788E]/25',
+    muted: 'text-[#631B08]'
   }
 };
 
@@ -514,13 +532,13 @@ export default function VSCodeWorkspace({
   };
 
   const cycleTheme = () => {
-    const order: ThemeKey[] = ['sepia', 'dark', 'light', 'teal'];
+    const order: ThemeKey[] = ['sepia', 'dark', 'light', 'teal', 'rose', 'harbor'];
     const idx = order.indexOf(theme);
     setTheme(order[(idx + 1) % order.length]);
   };
 
   const themeIcon =
-    theme === 'dark' ? <Sun size={20} /> : theme === 'teal' ? <Palette size={20} /> : <Moon size={20} />;
+    theme === 'dark' ? <Sun size={20} /> : (theme === 'teal' || theme === 'rose' || theme === 'harbor') ? <Palette size={20} /> : <Moon size={20} />;
 
   const genreLabel = (project as any)?.settings?.genre || '';
   const typographyFamily = TYPOGRAPHY_PRESETS[typographyPreset].fontFamily;
@@ -540,6 +558,10 @@ export default function VSCodeWorkspace({
         ? 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'
         : theme === 'teal'
           ? 'bg-[#F0FFFD] text-[#235C5A] border-[#BFEAE6] hover:bg-[#DFF8F5]'
+          : theme === 'rose'
+            ? 'bg-[#E5AEA9]/25 text-[#35627A] border-[#8E9A98] hover:bg-[#E5AEA9]/35'
+            : theme === 'harbor'
+              ? 'bg-[#26788E]/20 text-[#304C64] border-[#26788E] hover:bg-[#26788E]/30'
         : 'bg-[#FBF5E8] text-[#5C4B37] border-stone-200 hover:bg-[#F5EBDA]';
 
   return (
@@ -749,15 +771,15 @@ export default function VSCodeWorkspace({
               </button>
               <div className="flex flex-col">
                 {genreLabel && (
-                  <span className={`text-xs font-medium uppercase ${theme === 'teal' ? t.text : t.muted}`}>
+                  <span className={`text-xs font-medium uppercase ${(theme === 'teal' || theme === 'rose' || theme === 'harbor') ? t.text : t.muted}`}>
                     {project.name} / {genreLabel}
                   </span>
                 )}
-                <span className={`font-semibold text-sm ${theme === 'teal' ? 'text-[#0A8F8A]' : ''}`}>
+                <span className={`font-semibold text-sm ${theme === 'teal' ? 'text-[#0A8F8A]' : theme === 'rose' ? 'text-[#35627A]' : theme === 'harbor' ? 'text-[#304C64]' : ''}`}>
                   {selectedFile?.filename || 'No file selected'}
                 </span>
                 {hasUnsavedChanges && (
-                  <span className="text-[11px] text-amber-600 font-semibold">Unsaved changes</span>
+                  <span className={`text-[11px] font-semibold ${theme === 'harbor' ? 'text-[#E2480C]' : 'text-amber-600'}`}>Unsaved changes</span>
                 )}
               </div>
             </div>
@@ -834,7 +856,7 @@ export default function VSCodeWorkspace({
                 {showTypographyMenu && (
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setShowTypographyMenu(false)} />
-                    <div className={`absolute right-0 top-full mt-2 z-40 w-[26rem] max-h-[70vh] rounded-xl border shadow-xl p-3 overflow-hidden ${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : theme === 'light' ? 'bg-white border-gray-200' : theme === 'teal' ? 'bg-[#F0FFFD] border-[#BFEAE6]' : 'bg-[#FFF9EF] border-stone-200'}`}>
+                    <div className={`absolute right-0 top-full mt-2 z-40 w-[26rem] max-h-[70vh] rounded-xl border shadow-xl p-3 overflow-hidden ${theme === 'dark' ? 'bg-zinc-900 border-zinc-700' : theme === 'light' ? 'bg-white border-gray-200' : theme === 'teal' ? 'bg-[#F0FFFD] border-[#BFEAE6]' : theme === 'rose' ? 'bg-[#F5F5F5] border-[#8E9A98]' : theme === 'harbor' ? 'bg-[#A4CCD4] border-[#26788E]' : 'bg-[#FFF9EF] border-stone-200'}`}>
                       <div className="flex items-center justify-between mb-3">
                         <div>
                           <p className={`text-xs font-semibold uppercase tracking-wider ${t.muted}`}>Typography</p>
@@ -1112,7 +1134,7 @@ export default function VSCodeWorkspace({
         <button
           onClick={() => setFocusMode(false)}
           className="fixed top-4 right-4 z-50 p-2.5 rounded-full bg-white/80 dark:bg-zinc-800/80 shadow-lg backdrop-blur-sm transition-all hover:scale-105"
-          style={{ color: theme === 'dark' ? '#E0E0E0' : theme === 'teal' ? '#0A8F8A' : '#5C4B37' }}
+          style={{ color: theme === 'dark' ? '#E0E0E0' : theme === 'teal' ? '#0A8F8A' : theme === 'rose' ? '#35627A' : theme === 'harbor' ? '#304C64' : '#5C4B37' }}
           title="Exit Focus Mode (Esc)"
         >
           <Maximize2 size={16} />

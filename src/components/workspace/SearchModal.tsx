@@ -18,7 +18,7 @@ interface SearchModalProps {
   isOpen: boolean;
   onClose: () => void;
   onResultClick?: (fileId: string, chunkId: string) => void;
-  theme?: 'sepia' | 'dark' | 'light' | 'teal';
+  theme?: 'sepia' | 'dark' | 'light' | 'teal' | 'rose' | 'harbor';
 }
 
 export default function SearchModal({ projectId, isOpen, onClose, onResultClick, theme = 'sepia' }: SearchModalProps) {

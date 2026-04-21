@@ -69,7 +69,7 @@ interface AIChatPanelProps {
   onContextUsed?: () => void;
   onApplyEdit?: (edit: EditProposal) => Promise<void>;
   onClose?: () => void;
-  theme?: 'sepia' | 'dark' | 'light' | 'teal';
+  theme?: 'sepia' | 'dark' | 'light' | 'teal' | 'rose' | 'harbor';
 }
 
 const GENRE_LABELS: Record<string, string> = {

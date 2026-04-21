@@ -42,7 +42,7 @@ interface TextEditorProps {
     startColumn: number;
     endColumn: number;
   }) => void;
-  theme?: 'sepia' | 'dark' | 'light' | 'teal';
+  theme?: 'sepia' | 'dark' | 'light' | 'teal' | 'rose' | 'harbor';
   focusMode?: boolean;
   onExitFocus?: () => void;
   autoSave?: boolean;
@@ -111,6 +111,38 @@ const MONACO_THEMES = {
       'scrollbarSlider.background': '#BFEAE644',
       'scrollbarSlider.hoverBackground': '#98DCD477',
       'scrollbarSlider.activeBackground': '#72C9C2AA'
+    }
+  },
+  rose: {
+    base: 'vs' as const,
+    colors: {
+      'editor.background': '#F5F5F5',
+      'editor.foreground': '#35627A',
+      'editor.lineHighlightBackground': '#ECECEC',
+      'editor.selectionBackground': '#E5AEA955',
+      'editorLineNumber.foreground': '#8E9A98',
+      'editorLineNumber.activeForeground': '#B46258',
+      'editorCursor.foreground': '#35627A',
+      'scrollbar.shadow': '#00000000',
+      'scrollbarSlider.background': '#8E9A9844',
+      'scrollbarSlider.hoverBackground': '#8E9A9877',
+      'scrollbarSlider.activeBackground': '#8E9A98AA'
+    }
+  },
+  harbor: {
+    base: 'vs' as const,
+    colors: {
+      'editor.background': '#A4CCD4',
+      'editor.foreground': '#304C64',
+      'editor.lineHighlightBackground': '#9BC3CC',
+      'editor.selectionBackground': '#26788E44',
+      'editorLineNumber.foreground': '#26788E',
+      'editorLineNumber.activeForeground': '#E2480C',
+      'editorCursor.foreground': '#E2480C',
+      'scrollbar.shadow': '#00000000',
+      'scrollbarSlider.background': '#26788E44',
+      'scrollbarSlider.hoverBackground': '#26788E77',
+      'scrollbarSlider.activeBackground': '#26788EAA'
     }
   }
 };
@@ -734,10 +766,10 @@ const TextEditor = forwardRef(function TextEditor(
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center max-w-md px-8">
           <Feather className="w-16 h-16 mx-auto mb-6 opacity-20" />
-          <h2 className={`text-2xl mb-3 font-serif italic opacity-90 ${theme === 'teal' ? 'text-[#0A8F8A]' : ''}`}>
+          <h2 className={`text-2xl mb-3 font-serif italic opacity-90 ${theme === 'teal' ? 'text-[#0A8F8A]' : theme === 'rose' ? 'text-[#35627A]' : theme === 'harbor' ? 'text-[#304C64]' : ''}`}>
             What are we writing today?
           </h2>
-          <p className={`text-sm opacity-70 mb-6 ${theme === 'teal' ? 'text-[#21B9B3]' : ''}`}>
+          <p className={`text-sm opacity-70 mb-6 ${theme === 'teal' ? 'text-[#21B9B3]' : theme === 'rose' ? 'text-[#8E9A98]' : theme === 'harbor' ? 'text-[#26788E]' : ''}`}>
             Select a file from the sidebar, or create a new one to start writing
           </p>
           {onNewFile && (
@@ -827,7 +859,7 @@ const TextEditor = forwardRef(function TextEditor(
       )}
 
       {/* Stats footer */}
-      <footer className={`h-10 px-6 flex items-center justify-between text-[11px] font-medium opacity-50 border-t ${theme === 'dark' ? 'border-zinc-800' : theme === 'sepia' ? 'border-stone-200' : theme === 'teal' ? 'border-[#BFEAE6]' : 'border-gray-200'
+      <footer className={`h-10 px-6 flex items-center justify-between text-[11px] font-medium opacity-50 border-t ${theme === 'dark' ? 'border-zinc-800' : theme === 'sepia' ? 'border-stone-200' : theme === 'teal' ? 'border-[#BFEAE6]' : theme === 'rose' ? 'border-[#8E9A98]' : theme === 'harbor' ? 'border-[#26788E]' : 'border-gray-200'
         }`}>
         <div className="flex items-center space-x-4">
           <span>{content.length} characters</span>
