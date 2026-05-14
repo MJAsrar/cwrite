@@ -80,15 +80,6 @@ export default function DashboardLayout({ children, projectName }: DashboardLayo
         if (typeof window === 'undefined') return;
         const token = localStorage.getItem('access_token');
         if (!token) return;
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/me`, {
-          method: 'GET',
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-        if (response.ok) {
-          const userData = await response.json();
-          setUser(userData);
-        }
-
         const userData = await api.get<UserType>('/api/v1/auth/me');
         setUser(userData);
       } catch (error) {
@@ -112,13 +103,7 @@ export default function DashboardLayout({ children, projectName }: DashboardLayo
 
   const handleLogout = async () => {
     try {
-      const token = localStorage.getItem('access_token');
-      if (token) {
-        await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/logout`, {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${token}` },
-        });
-      }
+      await api.post('/api/v1/auth/logout');
     } catch (error) {
       console.error('Logout failed:', error);
     } finally {
