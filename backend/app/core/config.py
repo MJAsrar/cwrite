@@ -30,7 +30,9 @@ class Settings(BaseSettings):
     CORS_ORIGINS: List[str] = [
         "http://localhost:3000",
         "http://localhost:3001",
-        "http://127.0.0.1:3000"
+        "http://127.0.0.1:3000",
+        "https://cwrite-mjasrar.vercel.app",  # production frontend
+        "https://*.vercel.app",               # all Vercel preview deploys
     ]
     
     # File Upload
