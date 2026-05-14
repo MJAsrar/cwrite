@@ -37,6 +37,8 @@ class ApiClient {
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
+        // Skip ngrok browser warning interstitial (needed when tunneling via ngrok)
+        config.headers['ngrok-skip-browser-warning'] = 'true';
         return config;
       },
       (error) => {

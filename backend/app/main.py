@@ -50,9 +50,11 @@ app = FastAPI(
 )
 
 # Security middleware (order matters - add from innermost to outermost)
+# In debug mode allow all hosts (needed for ngrok tunnels during demos)
+allowed_hosts = ["*"] if settings.DEBUG else ["localhost", "127.0.0.1", "*.cowriteai.com"]
 app.add_middleware(
     TrustedHostMiddleware, 
-    allowed_hosts=["localhost", "127.0.0.1", "*.cowriteai.com"]
+    allowed_hosts=allowed_hosts
 )
 
 # Custom middleware stack
